@@ -103,7 +103,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // AUTO-DESBLOQUEAR com primeiro clique
+  // AUTO-DESBLOQUEAR AGRESSIVAMENTE
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (hasAutoUnlocked.current) return;
@@ -111,7 +111,9 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     const autoUnlock = () => {
       if (hasAutoUnlocked.current) return;
 
-      console.log('🔓 Auto-desbloqueando TTS...');
+      console.log('🔓 AUTO-DESBLOQUEANDO TTS AGORA...');
+
+      // Tentar desbloquear com silent utterance
       const unlock = new SpeechSynthesisUtterance('');
       unlock.volume = 0;
       window.speechSynthesis.speak(unlock);
@@ -119,25 +121,35 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       setIsUnlocked(true);
       isUnlockedRef.current = true;
       hasAutoUnlocked.current = true;
-      console.log('✅ TTS desbloqueado! Fila será processada agora.');
-      console.log(`📋 Fila atual: ${queue.length} items aguardando processamento`);
+
+      console.log('✅ TTS DESBLOQUEADO! Iniciando leitura automática...');
+      console.log(`📋 Fila: ${queue.length} items prontos para ler`);
     };
 
-    console.log('🎧 Aguardando primeira interação do usuário para desbloquear TTS...');
-    console.log('💡 DICA: Clique em qualquer lugar da página para ativar a voz automática');
+    console.log('🚀 INICIANDO AUTO-UNLOCK - Aguardando QUALQUER interação...');
+    console.log(`⏳ ${queue.length} notícias aguardando na fila`);
+    console.log('💡 MOVA O MOUSE ou TOQUE NA TELA para iniciar!');
 
-    document.addEventListener('click', autoUnlock, { once: true });
-    document.addEventListener('touchstart', autoUnlock, { once: true });
-    document.addEventListener('keydown', autoUnlock, { once: true });
-    document.addEventListener('mousemove', autoUnlock, { once: true });
-    document.addEventListener('scroll', autoUnlock, { once: true });
+    // Múltiplos eventos para capturar QUALQUER interação
+    const events = ['click', 'touchstart', 'keydown', 'mousemove', 'scroll', 'mousedown', 'touchmove', 'wheel'];
+
+    events.forEach(event => {
+      document.addEventListener(event, autoUnlock, { once: true, passive: true });
+    });
+
+    // Tentar unlock automático após 1 segundo (pode não funcionar mas vale tentar)
+    const autoUnlockTimer = setTimeout(() => {
+      if (!hasAutoUnlocked.current) {
+        console.log('⚠️ Tentando unlock automático...');
+        autoUnlock();
+      }
+    }, 1000);
 
     return () => {
-      document.removeEventListener('click', autoUnlock);
-      document.removeEventListener('touchstart', autoUnlock);
-      document.removeEventListener('keydown', autoUnlock);
-      document.removeEventListener('mousemove', autoUnlock);
-      document.removeEventListener('scroll', autoUnlock);
+      events.forEach(event => {
+        document.removeEventListener(event, autoUnlock);
+      });
+      clearTimeout(autoUnlockTimer);
     };
   }, [queue.length]);
 
@@ -323,9 +335,13 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     // Remover da fila
     setQueue(prev => prev.filter(item => item.id !== nextItem.id));
 
-    // Aguardar 3-5 segundos antes de falar (exceto se for o primeiro da fila)
-    const READING_INTERVAL = Math.floor(Math.random() * 2000) + 3000; // 3-5 segundos
-    const delay = queue.length > 1 ? READING_INTERVAL : 500; // 0.5s para primeiro item
+    // Intervalo entre leituras: 3 segundos
+    // Se for o PRIMEIRO item e acabou de desbloquear, ler IMEDIATAMENTE
+    const READING_INTERVAL = 3000; // 3 segundos fixos
+    const isFirstAfterUnlock = spokenIdsRef.current.size === 0;
+    const delay = isFirstAfterUnlock ? 0 : READING_INTERVAL; // IMEDIATO se for o primeiro
+
+    console.log(`⏱️ Delay: ${delay}ms ${isFirstAfterUnlock ? '(PRIMEIRO - IMEDIATO)' : '(próximos - 3s)'}`);
 
     const timer = setTimeout(() => {
       // Falar

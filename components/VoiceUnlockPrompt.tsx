@@ -19,18 +19,28 @@ export function VoiceUnlockPrompt() {
 
   if (!show) return null;
 
+  const handleClick = () => {
+    // Forçar unlock ao clicar
+    const unlock = new SpeechSynthesisUtterance('');
+    unlock.volume = 0;
+    window.speechSynthesis.speak(unlock);
+  };
+
   return (
-    <div className={styles.overlay} onClick={() => {}}>
+    <div className={styles.overlay} onClick={handleClick}>
       <div className={styles.prompt}>
         <div className={styles.icon}>🔊</div>
-        <h2 className={styles.title}>Voice Announcements Ready</h2>
+        <h2 className={styles.title}>🚀 AUTO-READ MODE READY</h2>
         <p className={styles.message}>
-          {queueLength} news {queueLength === 1 ? 'item' : 'items'} waiting to be read
+          <strong>{queueLength} NEWS</strong> waiting to be read automatically
         </p>
         <p className={styles.hint}>
-          Click anywhere or move your mouse to activate voice
+          👆 CLICK HERE or MOVE MOUSE to start auto-reading
         </p>
-        <div className={styles.pulse}></div>
+        <div className={styles.action}>
+          <div className={styles.pulse}></div>
+          <button className={styles.startBtn}>START READING NOW</button>
+        </div>
       </div>
     </div>
   );

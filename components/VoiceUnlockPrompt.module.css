@@ -1,19 +1,28 @@
 .overlay {
   position: fixed;
-  top: 80px;
-  right: 20px;
-  z-index: 9999;
-  pointer-events: none;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  pointer-events: auto;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
 }
 
 .prompt {
   background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
-  border: 2px solid #00ff00;
-  border-radius: 16px;
-  padding: 24px;
-  max-width: 320px;
-  box-shadow: 0 8px 32px rgba(0, 255, 0, 0.3);
-  animation: slideIn 0.4s ease-out;
+  border: 3px solid #00ff00;
+  border-radius: 20px;
+  padding: 40px;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 16px 48px rgba(0, 255, 0, 0.5), 0 0 100px rgba(0, 255, 0, 0.3);
+  animation: scaleIn 0.5s ease-out, glow 2s infinite;
   position: relative;
   overflow: hidden;
 }
@@ -27,28 +36,70 @@
 
 .title {
   color: #00ff00;
-  font-size: 18px;
+  font-size: 24px;
   font-weight: bold;
-  margin: 0 0 8px 0;
+  margin: 0 0 16px 0;
   text-align: center;
   font-family: monospace;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  animation: textGlow 2s infinite;
 }
 
 .message {
   color: #ffffff;
+  font-size: 18px;
+  margin: 0 0 20px 0;
+  text-align: center;
+  font-weight: 600;
+}
+
+.message strong {
+  color: #00ff00;
+  font-size: 24px;
+}
+
+.hint {
+  color: #aaaaaa;
   font-size: 14px;
-  margin: 0 0 12px 0;
+  margin: 0 0 24px 0;
   text-align: center;
   font-weight: 500;
 }
 
-.hint {
-  color: #888888;
-  font-size: 12px;
-  margin: 0;
-  text-align: center;
-  font-style: italic;
+.action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.startBtn {
+  padding: 16px 48px;
+  font-size: 16px;
+  font-weight: bold;
+  background: #00ff00;
+  color: #000;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-family: monospace;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  box-shadow: 0 4px 16px rgba(0, 255, 0, 0.5);
+  animation: buttonPulse 2s infinite;
+}
+
+.startBtn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 8px 24px rgba(0, 255, 0, 0.8);
+  background: #00ff00;
+}
+
+.startBtn:active {
+  transform: scale(0.95);
 }
 
 .pulse {
@@ -63,14 +114,41 @@
   pointer-events: none;
 }
 
-@keyframes slideIn {
+@keyframes scaleIn {
   from {
-    transform: translateX(400px);
+    transform: scale(0.8);
     opacity: 0;
   }
   to {
-    transform: translateX(0);
+    transform: scale(1);
     opacity: 1;
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 16px 48px rgba(0, 255, 0, 0.5), 0 0 100px rgba(0, 255, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 20px 60px rgba(0, 255, 0, 0.7), 0 0 150px rgba(0, 255, 0, 0.5);
+  }
+}
+
+@keyframes textGlow {
+  0%, 100% {
+    text-shadow: 0 0 10px #00ff00, 0 0 20px #00ff00;
+  }
+  50% {
+    text-shadow: 0 0 20px #00ff00, 0 0 40px #00ff00, 0 0 60px #00ff00;
+  }
+}
+
+@keyframes buttonPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
   }
 }
 
