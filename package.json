@@ -25,6 +25,7 @@
     "@types/three": "^0.182.0",
     "autoprefixer": "^10.4.23",
     "date-fns": "^4.1.0",
+    "firebase": "^12.8.0",
     "lucide-react": "^0.563.0",
     "next": "^16.1.6",
     "postcss": "^8.5.6",

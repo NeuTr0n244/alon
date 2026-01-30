@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useVoice } from '@/contexts/VoiceContext';
 import { AddKnowledgeModal } from './AddKnowledgeModal';
 import type { KnowledgeInput } from './AddKnowledgeModal';
+import { addKnowledgeItem, subscribeToKnowledge } from '@/lib/firebaseKnowledge';
 import styles from './KnowledgeBase.module.css';
 
 interface FeedItem {
@@ -16,6 +17,7 @@ interface FeedItem {
   timestamp: Date;
   link?: string;
   isNew?: boolean;
+  isManual?: boolean;
 }
 
 interface NewAlert {
@@ -26,6 +28,7 @@ interface NewAlert {
 
 export function KnowledgeBase() {
   const [items, setItems] = useState<FeedItem[]>([]);
+  const [firebaseItems, setFirebaseItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [newAlerts, setNewAlerts] = useState<NewAlert[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -67,7 +70,7 @@ export function KnowledgeBase() {
   }, []);
 
   // Adicionar conhecimento manual
-  const handleAddKnowledge = useCallback((data: KnowledgeInput) => {
+  const handleAddKnowledge = useCallback(async (data: KnowledgeInput) => {
     const newItem: FeedItem = {
       id: `manual-${Date.now()}-${Math.random()}`,
       type: data.type,
@@ -77,12 +80,20 @@ export function KnowledgeBase() {
       timestamp: new Date(),
       link: data.url,
       isNew: true,
+      isManual: true,
     };
 
     console.log('✏️ Novo conhecimento adicionado:', newItem);
 
-    // Adicionar no topo do feed
-    setItems(prev => [newItem, ...prev]);
+    // Salvar no Firebase para sync real-time
+    try {
+      await addKnowledgeItem(newItem);
+      console.log('🔥 Item salvo no Firebase');
+    } catch (error) {
+      console.error('❌ Erro ao salvar no Firebase:', error);
+      // Adicionar localmente mesmo se Firebase falhar
+      setItems(prev => [newItem, ...prev]);
+    }
 
     // Se voz está habilitada, INTERROMPER e ler IMEDIATAMENTE
     if (isEnabled && isUnlocked) {
@@ -250,6 +261,21 @@ export function KnowledgeBase() {
     return () => clearInterval(interval);
   }, [fetchAllData]);
 
+  // Subscribe to Firebase real-time updates
+  useEffect(() => {
+    console.log('🔥 Subscribing to Firebase...');
+
+    const unsubscribe = subscribeToKnowledge((fbItems) => {
+      console.log('🔥 Firebase items received:', fbItems.length);
+      setFirebaseItems(fbItems);
+    });
+
+    return () => {
+      console.log('🔥 Unsubscribing from Firebase');
+      unsubscribe();
+    };
+  }, []);
+
   // Timer para ler alertas acumulados a cada 5 minutos
   useEffect(() => {
     if (!isEnabled || !isUnlocked) return;
@@ -284,6 +310,29 @@ export function KnowledgeBase() {
 
     return () => clearInterval(checkAlerts);
   }, [isEnabled, isUnlocked, addToQueue, formatTextForSpeech, hasBeenSpoken]);
+
+  // Merge Firebase items with fetched items, avoiding duplicates
+  const allItems = useMemo(() => {
+    const itemsMap = new Map<string, FeedItem>();
+
+    // Add fetched items first
+    items.forEach(item => {
+      itemsMap.set(item.id, item);
+    });
+
+    // Add Firebase items (will override if same ID)
+    firebaseItems.forEach(item => {
+      itemsMap.set(item.id, item);
+    });
+
+    // Convert back to array and sort by timestamp
+    const merged = Array.from(itemsMap.values()).sort(
+      (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
+    );
+
+    console.log('🔀 Merged items:', merged.length, '(Firebase:', firebaseItems.length, '+ Fetched:', items.length, ')');
+    return merged;
+  }, [items, firebaseItems]);
 
   const dismissAlert = (id: string) => {
     setNewAlerts(prev => prev.filter(a => a.id !== id));
@@ -370,7 +419,7 @@ export function KnowledgeBase() {
             <span>Fetching latest data...</span>
           </div>
         ) : (
-          items.map((item) => (
+          allItems.map((item) => (
             <article
               key={item.id}
               className={`${styles.post} ${item.isNew ? styles.newPost : ''} ${currentId === item.id ? styles.reading : ''}`}
