@@ -37,6 +37,7 @@ export function KnowledgeBase() {
 
   const previousItemsRef = useRef<Set<string>>(new Set());
   const isFirstLoad = useRef(true);
+  const seenFirebaseIds = useRef<Set<string>>(new Set());
 
   // Controle de alertas (ler a cada 5 minutos)
   const lastAlertReadTime = useRef<number>(Date.now());
@@ -266,7 +267,27 @@ export function KnowledgeBase() {
     console.log('🔥 Subscribing to Firebase...');
 
     const unsubscribe = subscribeToKnowledge((fbItems) => {
-      console.log('🔥 Firebase items received:', fbItems.length);
+      console.log('[Firebase] Received items:', fbItems.length);
+
+      // Process new items for TTS
+      fbItems.forEach((item) => {
+        const isNewItem = !seenFirebaseIds.current.has(item.id);
+
+        if (isNewItem) {
+          console.log('🔥 NEW Firebase item detected:', item.id, 'isManual:', item.isManual);
+
+          // Mark as seen
+          seenFirebaseIds.current.add(item.id);
+
+          // If it's a manual item (user note), speak it immediately for all users
+          if (item.isManual && isEnabled && isUnlocked) {
+            const text = formatTextForSpeech(item);
+            console.log('🔊 Speaking Firebase item for all users:', item.content.slice(0, 50));
+            speakNow(text, item.id);
+          }
+        }
+      });
+
       setFirebaseItems(fbItems);
     });
 
@@ -274,7 +295,7 @@ export function KnowledgeBase() {
       console.log('🔥 Unsubscribing from Firebase');
       unsubscribe();
     };
-  }, []);
+  }, [isEnabled, isUnlocked, formatTextForSpeech, speakNow]);
 
   // Timer para ler alertas acumulados a cada 5 minutos
   useEffect(() => {
@@ -325,12 +346,21 @@ export function KnowledgeBase() {
       itemsMap.set(item.id, item);
     });
 
-    // Convert back to array and sort by timestamp
+    // Convert back to array and sort by timestamp (most recent first)
     const merged = Array.from(itemsMap.values()).sort(
       (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
     );
 
     console.log('🔀 Merged items:', merged.length, '(Firebase:', firebaseItems.length, '+ Fetched:', items.length, ')');
+
+    // Debug: Show first 3 items
+    if (merged.length > 0) {
+      console.log('🔀 First 3 items:');
+      merged.slice(0, 3).forEach((item, i) => {
+        console.log(`  ${i + 1}. [${item.type}] ${item.content.slice(0, 40)}... (manual: ${item.isManual})`);
+      });
+    }
+
     return merged;
   }, [items, firebaseItems]);
 
@@ -424,7 +454,10 @@ export function KnowledgeBase() {
               key={item.id}
               className={`${styles.post} ${item.isNew ? styles.newPost : ''} ${currentId === item.id ? styles.reading : ''}`}
               onClick={() => handleItemClick(item)}
-              style={{ cursor: 'pointer' }}
+              style={{
+                cursor: 'pointer',
+                borderLeft: item.type === 'note' ? '2px solid #ff00ff' : undefined,
+              }}
             >
               {item.isNew && <span className={styles.newBadge}>NEW</span>}
               {currentId === item.id && (
@@ -434,7 +467,12 @@ export function KnowledgeBase() {
               {/* Post Header */}
               <div className={styles.postHeader}>
                 <span className={styles.postIcon}>{getIcon(item.type, item.source)}</span>
-                <span className={styles.postType}>{item.type.toUpperCase()}</span>
+                <span
+                  className={styles.postType}
+                  style={{ color: item.type === 'note' ? '#ff00ff' : '#00ff00' }}
+                >
+                  {item.type.toUpperCase()}
+                </span>
               </div>
 
               {/* Post Content */}

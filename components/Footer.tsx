@@ -8,7 +8,7 @@ export function Footer() {
       <span className={styles.copyright}>© 2025 ALON TERMINAL. All rights reserved.</span>
       <div className={styles.links}>
         <a href="#" className={styles.footerLink}>Docs</a>
-        <a href="#" className={styles.footerLink}>Twitter</a>
+        <a href="https://x.com/AlonTerminal" target="_blank" rel="noopener noreferrer" className={styles.footerLink}>Twitter</a>
         <a href="#" className={styles.footerLink}>Discord</a>
       </div>
     </footer>

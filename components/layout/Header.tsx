@@ -130,7 +130,7 @@ export function Header() {
 
           {/* X (Twitter) Link */}
           <a
-            href="https://x.com"
+            href="https://x.com/AlonTerminal"
             target="_blank"
             rel="noopener noreferrer"
             title="Follow us on X"

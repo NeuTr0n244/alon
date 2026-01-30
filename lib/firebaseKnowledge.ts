@@ -29,15 +29,19 @@ export interface FirebaseKnowledgeItem {
  */
 export async function addKnowledgeItem(item: Omit<FeedItem, 'timestamp'> & { timestamp?: Date }) {
   try {
-    const docRef = await addDoc(collection(db, COLLECTION_NAME), {
+    const data = {
       type: item.type,
       title: item.title,
       content: item.content,
-      source: item.source,
+      source: item.source || 'UNKNOWN',
       link: item.link || null,
       createdAt: Timestamp.fromDate(item.timestamp || new Date()),
       isManual: item.isManual || false,
-    });
+    };
+
+    console.log('📤 Saving to Firebase:', { ...data, content: data.content.slice(0, 50) + '...' });
+
+    const docRef = await addDoc(collection(db, COLLECTION_NAME), data);
 
     console.log('✅ Knowledge item saved to Firebase:', docRef.id);
     return docRef.id;
@@ -74,6 +78,9 @@ export function subscribeToKnowledge(callback: (items: FeedItem[]) => void) {
     });
 
     console.log('🔥 Firebase update:', items.length, 'items');
+    if (items.length > 0) {
+      console.log('🔥 First item:', items[0].content.slice(0, 50), 'isManual:', items[0].isManual);
+    }
     callback(items);
   }, (error) => {
     console.error('❌ Firebase subscription error:', error);
