@@ -13,12 +13,14 @@ export function Character3D() {
   // Configurar animação em loop
   useEffect(() => {
     console.log('🎬 Animações encontradas:', names);
-    
-    if (names.length > 0 && actions[names[0]]) {
+
+    if (names.length > 0) {
       const action = actions[names[0]];
-      action.setLoop(THREE.LoopRepeat, Infinity);
-      action.reset().play();
-      console.log('✅ Animação em loop:', names[0]);
+      if (action) {
+        action.setLoop(THREE.LoopRepeat, Infinity);
+        action.reset().play();
+        console.log('✅ Animação em loop:', names[0]);
+      }
     }
   }, [actions, names]);
 
