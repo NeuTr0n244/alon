@@ -2,7 +2,6 @@
 
 import { ReactNode } from 'react';
 import { Header } from './Header';
-import { Footer } from '../Footer';
 
 interface MainLayoutProps {
   leftColumn: ReactNode;
@@ -15,7 +14,7 @@ export function MainLayout({ leftColumn, centerColumn, rightColumn }: MainLayout
     <div className="flex flex-col h-screen bg-background">
       <Header />
 
-      <main className="flex-1 overflow-hidden" style={{ paddingBottom: '32px' }}>
+      <main className="flex-1 overflow-hidden">
         <div className="h-full grid grid-cols-3 gap-0">
           {/* Left Column - New Tokens */}
           <div className="border-r border-[#1a1a1a] overflow-hidden flex flex-col">
@@ -33,8 +32,6 @@ export function MainLayout({ leftColumn, centerColumn, rightColumn }: MainLayout
           </div>
         </div>
       </main>
-
-      <Footer />
     </div>
   );
 }
