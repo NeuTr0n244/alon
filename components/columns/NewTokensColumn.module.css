@@ -147,6 +147,16 @@
   color: #888;
 }
 
+/* Badge NEW para tokens sem market cap */
+.cardNew {
+  background: #00ff00;
+  color: #000;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
 .empty {
   text-align: center;
   padding: 40px 20px;
