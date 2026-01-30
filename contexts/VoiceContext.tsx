@@ -216,6 +216,8 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
 
   // ========== FALAR UM ITEM ==========
   const speakItem = useCallback((item: QueueItem) => {
+    console.log('🔵 speakItem CHAMADO para:', item.text.slice(0, 50));
+
     // VERIFICAÇÕES RÍGIDAS
     if (!isEnabledRef.current) {
       console.log('❌ Voz desabilitada, não vou falar');
@@ -230,6 +232,14 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // Verificar se speechSynthesis existe
+    if (!window.speechSynthesis) {
+      console.error('❌ speechSynthesis não disponível!');
+      return;
+    }
+
+    console.log('✅ Todas as verificações passaram, criando utterance...');
+
     // Cancelar qualquer coisa que esteja tocando
     window.speechSynthesis.cancel();
 
@@ -237,6 +247,9 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
 
     if (voiceRef.current) {
       utterance.voice = voiceRef.current;
+      console.log('🎤 Voz selecionada:', voiceRef.current.name);
+    } else {
+      console.log('⚠️ Nenhuma voz selecionada, usando padrão');
     }
 
     utterance.lang = 'en-US';
@@ -245,6 +258,8 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     utterance.volume = 1.0;
 
     utterance.onstart = () => {
+      console.log('🔊 EVENTO ONSTART - Fala INICIADA!');
+
       // VERIFICAR NOVAMENTE se ainda está habilitado
       if (!isEnabledRef.current) {
         console.log('❌ Voz foi desabilitada, cancelando');
@@ -252,7 +267,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      console.log('🎤 Lendo:', item.text.slice(0, 50));
+      console.log('🎤 LENDO:', item.text.slice(0, 80), '...');
       setIsSpeaking(true);
       isSpeakingRef.current = true;
       setCurrentId(item.id);
@@ -266,7 +281,8 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     };
 
     utterance.onend = () => {
-      console.log('✅ Terminou:', item.id.slice(0, 30));
+      console.log('✅ EVENTO ONEND - Fala TERMINADA!');
+      console.log('✅ ID lido:', item.id.slice(0, 30));
       setIsSpeaking(false);
       isSpeakingRef.current = false;
       setCurrentId(null);
@@ -274,8 +290,9 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     };
 
     utterance.onerror = (e) => {
+      console.error('❌ EVENTO ONERROR - Erro TTS:', e.error);
       if (e.error !== 'interrupted' && e.error !== 'canceled') {
-        console.error('❌ Erro TTS:', e.error);
+        console.error('❌ Erro crítico:', e);
       }
       setIsSpeaking(false);
       isSpeakingRef.current = false;
@@ -283,7 +300,9 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       window.dispatchEvent(new CustomEvent('character-speak-end'));
     };
 
+    console.log('📢 CHAMANDO window.speechSynthesis.speak()...');
     window.speechSynthesis.speak(utterance);
+    console.log('📢 speak() CHAMADO! Aguardando eventos onstart/onend...');
   }, []);
 
   // ========== PROCESSAR FILA AUTOMATICAMENTE ==========
@@ -312,6 +331,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
 
     if (isSpeaking) {
       // Se está falando, aguardar terminar
+      console.log('🔇 Já está falando, aguardando terminar...');
       return;
     }
 
@@ -332,9 +352,6 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
 
     console.log('🎯 Próximo:', nextItem.text.slice(0, 50), '...');
 
-    // Remover da fila
-    setQueue(prev => prev.filter(item => item.id !== nextItem.id));
-
     // Intervalo entre leituras: 3 segundos
     // Se for o PRIMEIRO item e acabou de desbloquear, ler IMEDIATAMENTE
     const READING_INTERVAL = 3000; // 3 segundos fixos
@@ -343,12 +360,14 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
 
     console.log(`⏱️ Delay: ${delay}ms ${isFirstAfterUnlock ? '(PRIMEIRO - IMEDIATO)' : '(próximos - 3s)'}`);
 
-    const timer = setTimeout(() => {
+    // Usar setTimeout sem cleanup para não cancelar
+    setTimeout(() => {
+      console.log('🔊 INICIANDO FALA AGORA...');
+      // Remover da fila ANTES de falar
+      setQueue(prev => prev.filter(item => item.id !== nextItem.id));
       // Falar
       speakItem(nextItem);
     }, delay);
-
-    return () => clearTimeout(timer);
   }, [queue, isSpeaking, isEnabled, isUnlocked, speakItem]);
 
   // ========== ADICIONAR À FILA COM PRIORIDADE ==========
