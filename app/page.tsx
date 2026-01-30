@@ -5,6 +5,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { NewTokensColumn } from '@/components/columns/NewTokensColumn';
 import { KnowledgeBase } from '@/components/KnowledgeBase';
 import { CharacterCanvas } from '@/components/character/CharacterCanvas';
+import { VoiceUnlockPrompt } from '@/components/VoiceUnlockPrompt';
 
 function CharacterColumn() {
   return <CharacterCanvas />;
@@ -13,6 +14,7 @@ function CharacterColumn() {
 export default function Home() {
   return (
     <WebSocketProvider>
+      <VoiceUnlockPrompt />
       <MainLayout
         leftColumn={<NewTokensColumn />}
         centerColumn={<CharacterColumn />}

@@ -120,20 +120,26 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       isUnlockedRef.current = true;
       hasAutoUnlocked.current = true;
       console.log('✅ TTS desbloqueado! Fila será processada agora.');
+      console.log(`📋 Fila atual: ${queue.length} items aguardando processamento`);
     };
 
     console.log('🎧 Aguardando primeira interação do usuário para desbloquear TTS...');
+    console.log('💡 DICA: Clique em qualquer lugar da página para ativar a voz automática');
 
     document.addEventListener('click', autoUnlock, { once: true });
     document.addEventListener('touchstart', autoUnlock, { once: true });
     document.addEventListener('keydown', autoUnlock, { once: true });
+    document.addEventListener('mousemove', autoUnlock, { once: true });
+    document.addEventListener('scroll', autoUnlock, { once: true });
 
     return () => {
       document.removeEventListener('click', autoUnlock);
       document.removeEventListener('touchstart', autoUnlock);
       document.removeEventListener('keydown', autoUnlock);
+      document.removeEventListener('mousemove', autoUnlock);
+      document.removeEventListener('scroll', autoUnlock);
     };
-  }, []);
+  }, [queue.length]);
 
   // ========== PARAR TUDO IMEDIATAMENTE ==========
   const stopEverything = useCallback(() => {
@@ -283,7 +289,13 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     if (!isUnlocked) {
       console.log('🔒 Voz não desbloqueada ainda, aguardando interação do usuário...');
       console.log(`⏳ ${queue.length} items na fila aguardando desbloqueio`);
+      console.log('💡 DICA: Clique, mova o mouse ou role a página para ativar a voz');
       return;
+    }
+
+    // UNLOCK ACONTECEU! Processar fila imediatamente
+    if (isUnlocked && queue.length > 0 && !isSpeaking) {
+      console.log('🚀 VOZ DESBLOQUEADA! Processando fila agora...');
     }
 
     if (isSpeaking) {
