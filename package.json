@@ -9,6 +9,7 @@
     "lint": "next lint",
     "commit": "node scripts/commit.js",
     "ship": "node scripts/ship.js",
+    "setup": "node scripts/setup-secrets.js",
     "push": "git add . && git push",
     "deploy": "vercel --prod",
     "deploy:preview": "vercel"
