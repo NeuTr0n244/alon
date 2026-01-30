@@ -119,8 +119,10 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       setIsUnlocked(true);
       isUnlockedRef.current = true;
       hasAutoUnlocked.current = true;
-      console.log('✅ TTS desbloqueado!');
+      console.log('✅ TTS desbloqueado! Fila será processada agora.');
     };
+
+    console.log('🎧 Aguardando primeira interação do usuário para desbloquear TTS...');
 
     document.addEventListener('click', autoUnlock, { once: true });
     document.addEventListener('touchstart', autoUnlock, { once: true });
@@ -268,7 +270,27 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
 
   // ========== PROCESSAR FILA ==========
   useEffect(() => {
-    if (!isEnabled || !isUnlocked || isSpeaking || queue.length === 0) {
+    // Debug: Mostrar estado atual
+    if (queue.length > 0) {
+      console.log(`📋 Fila: ${queue.length} items | enabled: ${isEnabled} | unlocked: ${isUnlocked} | speaking: ${isSpeaking}`);
+    }
+
+    if (!isEnabled) {
+      console.log('⏸️ Voz desabilitada, fila pausada');
+      return;
+    }
+
+    if (!isUnlocked) {
+      console.log('🔒 Voz não desbloqueada ainda, aguardando interação do usuário...');
+      console.log(`⏳ ${queue.length} items na fila aguardando desbloqueio`);
+      return;
+    }
+
+    if (isSpeaking) {
+      return;
+    }
+
+    if (queue.length === 0) {
       return;
     }
 
@@ -283,7 +305,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    console.log('🎯 Próximo:', nextItem.id.slice(0, 30));
+    console.log('🎯 Próximo:', nextItem.text.slice(0, 50), '...');
 
     // Remover da fila
     setQueue(prev => prev.filter(item => item.id !== nextItem.id));

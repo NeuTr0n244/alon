@@ -170,6 +170,12 @@ export function KnowledgeBase() {
       } else {
         // PRIMEIRA CARGA - ADICIONAR TODOS OS ITEMS À FILA EM ORDEM
         console.log('🎬 PRIMEIRA CARGA - Adicionando TODOS os items à fila');
+        console.log('Voice enabled:', isEnabled, 'Voice unlocked:', isUnlocked);
+
+        // Aguardar um pouco se a voz não estiver desbloqueada
+        if (!isUnlocked) {
+          console.log('⏳ Voz não desbloqueada ainda, aguardando interação do usuário...');
+        }
 
         allItems.forEach((item, index) => {
           if (hasBeenSpoken(item.id)) {
@@ -180,8 +186,10 @@ export function KnowledgeBase() {
           const text = formatTextForSpeech(item);
           addToQueue(text, item.id);
           previousIds.add(item.id);
-          console.log(`➕ Item ${index + 1} adicionado à fila: [${item.type}]`);
+          console.log(`➕ Item ${index + 1} adicionado à fila: [${item.type}] ${item.content.slice(0, 40)}...`);
         });
+
+        console.log(`✅ Total de ${allItems.length} items adicionados à fila na primeira carga`);
       }
 
       isFirstLoad.current = false;
