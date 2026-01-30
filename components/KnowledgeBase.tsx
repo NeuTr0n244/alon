@@ -35,6 +35,11 @@ export function KnowledgeBase() {
   const previousItemsRef = useRef<Set<string>>(new Set());
   const isFirstLoad = useRef(true);
 
+  // Controle de alertas (ler a cada 5 minutos)
+  const lastAlertReadTime = useRef<number>(Date.now());
+  const pendingAlerts = useRef<FeedItem[]>([]);
+  const ALERT_INTERVAL = 5 * 60 * 1000; // 5 minutos em ms
+
   // getPriority removido - não é mais necessário
 
   // Formatar texto para falar baseado no tipo
@@ -149,17 +154,34 @@ export function KnowledgeBase() {
             ...prev
           ].slice(0, 5));
 
-          // ADICIONAR NOVOS ITEMS À FILA
+          // PROCESSAR NOVOS ITEMS CONFORME TIPO
           brandNewItems.forEach((item, index) => {
             if (hasBeenSpoken(item.id)) {
               console.log(`⏭️ Item já foi lido, pulando: ${item.id.slice(0, 30)}`);
               return;
             }
 
-            const text = formatTextForSpeech(item);
-            addToQueue(text, item.id);
-            console.log(`➕ Novo item ${index + 1} adicionado: [${item.type}]`);
-            previousIds.add(item.id);
+            // ======== REGRAS DE LEITURA ========
+            if (item.type === 'news') {
+              // NEWS: Ler IMEDIATAMENTE
+              const text = formatTextForSpeech(item);
+              addToQueue(text, item.id);
+              console.log(`📰 NEWS adicionado à fila: ${item.content.slice(0, 50)}`);
+              previousIds.add(item.id);
+            }
+            else if (item.type === 'alert') {
+              // ALERT: Acumular para ler a cada 5 minutos
+              if (!pendingAlerts.current.find(a => a.id === item.id)) {
+                pendingAlerts.current.push(item);
+                console.log(`🔔 ALERT acumulado (${pendingAlerts.current.length} total): ${item.content.slice(0, 50)}`);
+                previousIds.add(item.id);
+              }
+            }
+            // IGNORAR: market, prediction, moonshot, trending
+            else {
+              console.log(`⏭️ Tipo ignorado (${item.type}): ${item.content.slice(0, 50)}`);
+              previousIds.add(item.id);
+            }
           });
 
           // Marcar como novos
@@ -168,8 +190,8 @@ export function KnowledgeBase() {
           });
         }
       } else {
-        // PRIMEIRA CARGA - ADICIONAR TODOS OS ITEMS À FILA EM ORDEM
-        console.log('🎬 PRIMEIRA CARGA - Adicionando TODOS os items à fila');
+        // PRIMEIRA CARGA - ADICIONAR APENAS NEWS À FILA
+        console.log('🎬 PRIMEIRA CARGA - Adicionando apenas NEWS à fila');
         console.log('Voice enabled:', isEnabled, 'Voice unlocked:', isUnlocked);
 
         // Aguardar um pouco se a voz não estiver desbloqueada
@@ -177,19 +199,37 @@ export function KnowledgeBase() {
           console.log('⏳ Voz não desbloqueada ainda, aguardando interação do usuário...');
         }
 
-        allItems.forEach((item, index) => {
+        // Separar items por tipo
+        const newsItems = allItems.filter(item => item.type === 'news');
+        const alertItems = allItems.filter(item => item.type === 'alert');
+
+        // Adicionar NEWS à fila
+        newsItems.forEach((item, index) => {
           if (hasBeenSpoken(item.id)) {
-            console.log(`⏭️ Item ${index + 1} já foi lido, pulando`);
+            console.log(`⏭️ NEWS ${index + 1} já foi lido, pulando`);
             return;
           }
 
           const text = formatTextForSpeech(item);
           addToQueue(text, item.id);
           previousIds.add(item.id);
-          console.log(`➕ Item ${index + 1} adicionado à fila: [${item.type}] ${item.content.slice(0, 40)}...`);
+          console.log(`➕ NEWS ${index + 1} adicionado à fila: ${item.content.slice(0, 40)}...`);
         });
 
-        console.log(`✅ Total de ${allItems.length} items adicionados à fila na primeira carga`);
+        // Acumular ALERTS (não ler agora)
+        alertItems.forEach(item => {
+          if (!pendingAlerts.current.find(a => a.id === item.id)) {
+            pendingAlerts.current.push(item);
+            previousIds.add(item.id);
+          }
+        });
+
+        // Marcar outros tipos como vistos (mas não ler)
+        allItems
+          .filter(item => item.type !== 'news' && item.type !== 'alert')
+          .forEach(item => previousIds.add(item.id));
+
+        console.log(`✅ Primeira carga: ${newsItems.length} NEWS na fila, ${alertItems.length} ALERTS acumulados`);
       }
 
       isFirstLoad.current = false;
@@ -208,6 +248,41 @@ export function KnowledgeBase() {
     const interval = setInterval(fetchAllData, 30000);
     return () => clearInterval(interval);
   }, [fetchAllData]);
+
+  // Timer para ler alertas acumulados a cada 5 minutos
+  useEffect(() => {
+    if (!isEnabled || !isUnlocked) return;
+
+    const checkAlerts = setInterval(() => {
+      const now = Date.now();
+      const timeSinceLastRead = now - lastAlertReadTime.current;
+
+      if (timeSinceLastRead >= ALERT_INTERVAL && pendingAlerts.current.length > 0) {
+        console.log(`⏰ 5 MINUTOS - Lendo ${pendingAlerts.current.length} alertas acumulados`);
+
+        // Anunciar resumo primeiro
+        const summaryText = `Alert summary. ${pendingAlerts.current.length} alerts in the last 5 minutes.`;
+        addToQueue(summaryText, `alert-summary-${now}`);
+
+        // Ler cada alerta
+        pendingAlerts.current.forEach((alert, i) => {
+          if (!hasBeenSpoken(alert.id)) {
+            const text = formatTextForSpeech(alert);
+            addToQueue(text, alert.id);
+            console.log(`🔊 Lendo alerta ${i + 1}: ${alert.content.slice(0, 40)}`);
+          }
+        });
+
+        // Limpar e resetar timer
+        pendingAlerts.current = [];
+        lastAlertReadTime.current = now;
+
+        console.log(`✅ Alertas lidos. Próxima leitura em 5 minutos.`);
+      }
+    }, 60000); // Verificar a cada 1 minuto
+
+    return () => clearInterval(checkAlerts);
+  }, [isEnabled, isUnlocked, addToQueue, formatTextForSpeech, hasBeenSpoken]);
 
   const dismissAlert = (id: string) => {
     setNewAlerts(prev => prev.filter(a => a.id !== id));
