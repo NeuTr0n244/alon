@@ -2,9 +2,10 @@
 .container {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: calc(100vh - 60px); /* Altura fixa menos header */
   background: #0d0d0d;
   border-left: 1px solid #1a1a1a;
+  overflow: hidden; /* Prevenir scroll no container */
 }
 
 .header {
@@ -13,6 +14,7 @@
   align-items: center;
   padding: 16px 20px;
   border-bottom: 1px solid #1a1a1a;
+  flex-shrink: 0; /* Não comprimir */
 }
 
 .header h2 {
@@ -79,6 +81,7 @@
   gap: 8px;
   padding: 12px 16px;
   border-bottom: 1px solid #1a1a1a;
+  flex-shrink: 0; /* Não comprimir */
 }
 
 .quickActions a {
@@ -284,6 +287,27 @@
   padding: 8px;
   background: #0a0a0a;
   border-bottom: 1px solid #1a1a1a;
+  max-height: 200px; /* Altura máxima */
+  overflow-y: auto; /* Scroll interno se necessário */
+  flex-shrink: 0; /* Não comprimir */
+}
+
+/* Scrollbar para alertas */
+.alertsContainer::-webkit-scrollbar {
+  width: 4px;
+}
+
+.alertsContainer::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.alertsContainer::-webkit-scrollbar-thumb {
+  background: #2a2a2a;
+  border-radius: 2px;
+}
+
+.alertsContainer::-webkit-scrollbar-thumb:hover {
+  background: #3a3a3a;
 }
 
 .alertCard {
@@ -354,6 +378,7 @@
   font-size: 10px;
   color: #555;
   border-bottom: 1px solid #1a1a1a;
+  flex-shrink: 0; /* Não comprimir */
 }
 
 .updateIcon {
@@ -554,6 +579,7 @@
   cursor: pointer;
   transition: all 0.2s;
   font-family: 'Courier New', monospace;
+  flex-shrink: 0; /* Sempre visível, não comprimir */
 }
 
 .addKnowledgeBtn:hover {

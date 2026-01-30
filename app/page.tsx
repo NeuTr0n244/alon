@@ -7,7 +7,6 @@ import { KnowledgeBase } from '@/components/KnowledgeBase';
 import { CharacterCanvas } from '@/components/character/CharacterCanvas';
 import { VoiceUnlockPrompt } from '@/components/VoiceUnlockPrompt';
 import { XTrackerWidget } from '@/components/XTrackerWidget';
-import { SocialFooter } from '@/components/SocialFooter';
 
 function CharacterColumn() {
   return <CharacterCanvas />;
@@ -18,7 +17,6 @@ export default function Home() {
     <WebSocketProvider>
       <VoiceUnlockPrompt />
       <XTrackerWidget />
-      <SocialFooter />
       <MainLayout
         leftColumn={<NewTokensColumn />}
         centerColumn={<CharacterColumn />}
