@@ -25,7 +25,7 @@ const VoiceContext = createContext<VoiceContextType | null>(null);
 export function VoiceProvider({ children }: { children: ReactNode }) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [currentId, setCurrentId] = useState<string | null>(null);
-  const [isEnabled, setIsEnabled] = useState(true); // TRUE por padrão
+  const [isEnabled, setIsEnabled] = useState(true);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [queue, setQueue] = useState<QueueItem[]>([]);
 
@@ -36,12 +36,16 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
   const isUnlockedRef = useRef(false);
   const isSpeakingRef = useRef(false);
   const hasAutoUnlocked = useRef(false);
+  
+  // ========== NOVOS REFS PARA CONTROLE ==========
+  const isProcessingRef = useRef(false); // Evita processamento duplicado
+  const processingTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Controle do timeout
+  const currentUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null); // Referência da utterance atual
 
   // FORÇAR VOZ SEMPRE ATIVA NA INICIALIZAÇÃO
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // SEMPRE iniciar com voz ATIVA (ignorar localStorage)
     const shouldBeEnabled = true;
     setIsEnabled(shouldBeEnabled);
     isEnabledRef.current = shouldBeEnabled;
@@ -76,7 +80,6 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       const voices = window.speechSynthesis.getVoices();
       if (voices.length === 0) return;
 
-      // Prioridade: Google UK English Male > qualquer Male > inglês
       let selectedVoice = voices.find(v => v.name === 'Google UK English Male');
       if (!selectedVoice) {
         selectedVoice = voices.find(v =>
@@ -113,7 +116,6 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
 
       console.log('🔓 AUTO-DESBLOQUEANDO TTS AGORA...');
 
-      // Tentar desbloquear com silent utterance
       const unlock = new SpeechSynthesisUtterance('');
       unlock.volume = 0;
       window.speechSynthesis.speak(unlock);
@@ -123,21 +125,17 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       hasAutoUnlocked.current = true;
 
       console.log('✅ TTS DESBLOQUEADO! Iniciando leitura automática...');
-      console.log(`📋 Fila: ${queue.length} items prontos para ler`);
     };
 
     console.log('🚀 INICIANDO AUTO-UNLOCK - Aguardando QUALQUER interação...');
-    console.log(`⏳ ${queue.length} notícias aguardando na fila`);
     console.log('💡 MOVA O MOUSE ou TOQUE NA TELA para iniciar!');
 
-    // Múltiplos eventos para capturar QUALQUER interação
     const events = ['click', 'touchstart', 'keydown', 'mousemove', 'scroll', 'mousedown', 'touchmove', 'wheel'];
 
     events.forEach(event => {
       document.addEventListener(event, autoUnlock, { once: true, passive: true });
     });
 
-    // Tentar unlock automático após 1 segundo (pode não funcionar mas vale tentar)
     const autoUnlockTimer = setTimeout(() => {
       if (!hasAutoUnlocked.current) {
         console.log('⚠️ Tentando unlock automático...');
@@ -151,105 +149,84 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       });
       clearTimeout(autoUnlockTimer);
     };
-  }, [queue.length]);
-
-  // ========== PARAR TUDO IMEDIATAMENTE ==========
-  const stopEverything = useCallback(() => {
-    console.log('🛑🛑🛑 PARANDO TUDO 🛑🛑🛑');
-
-    // 1. Cancelar TTS
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-      console.log('✅ speechSynthesis.cancel() chamado');
-    }
-
-    // 2. Atualizar estados
-    setIsSpeaking(false);
-    isSpeakingRef.current = false;
-    setCurrentId(null);
-    setQueue([]);
-
-    // 3. Disparar evento
-    window.dispatchEvent(new CustomEvent('character-speak-end'));
-
-    console.log('✅ Tudo parado');
   }, []);
 
-  // ========== TOGGLE VOZ ==========
-  const toggleVoice = useCallback(() => {
-    console.log('========== TOGGLE VOICE ==========');
-    console.log('isEnabled:', isEnabledRef.current);
-    console.log('isSpeaking:', isSpeakingRef.current);
+  // ========== PROCESSAR PRÓXIMO ITEM DA FILA ==========
+  const processNextItem = useCallback(() => {
+    console.log('🔄 processNextItem chamado');
+    console.log(`   Estado: enabled=${isEnabledRef.current}, unlocked=${isUnlockedRef.current}, speaking=${isSpeakingRef.current}, processing=${isProcessingRef.current}`);
 
-    if (isEnabledRef.current) {
-      // DESATIVANDO - PARAR TUDO
-      console.log('>>> DESATIVANDO <<<');
+    // Verificações
+    if (!isEnabledRef.current) {
+      console.log('⏸️ Voz desabilitada, parando processamento');
+      isProcessingRef.current = false;
+      return;
+    }
 
-      stopEverything();
+    if (!isUnlockedRef.current) {
+      console.log('🔒 TTS não desbloqueado');
+      isProcessingRef.current = false;
+      return;
+    }
 
-      setIsEnabled(false);
-      isEnabledRef.current = false;
-      localStorage.setItem('voiceEnabled', 'false');
+    if (isSpeakingRef.current) {
+      console.log('🔇 Já está falando, aguardando...');
+      isProcessingRef.current = false;
+      return;
+    }
 
-      console.log('✅ Voz desativada');
-    } else {
-      // ATIVANDO
-      console.log('>>> ATIVANDO <<<');
+    // Pegar próximo item não falado
+    setQueue(currentQueue => {
+      const nextItem = currentQueue.find(item => !spokenIdsRef.current.has(item.id));
 
-      setIsEnabled(true);
-      isEnabledRef.current = true;
-      localStorage.setItem('voiceEnabled', 'true');
-
-      // Desbloquear TTS se necessário
-      if (!hasAutoUnlocked.current) {
-        const unlock = new SpeechSynthesisUtterance('');
-        unlock.volume = 0;
-        window.speechSynthesis?.speak(unlock);
-        setIsUnlocked(true);
-        isUnlockedRef.current = true;
-        hasAutoUnlocked.current = true;
+      if (!nextItem) {
+        console.log('✅ Fila vazia ou todos já foram lidos');
+        isProcessingRef.current = false;
+        return [];
       }
 
-      console.log('✅ Voz ativada');
-    }
-  }, [stopEverything]);
+      console.log('🎯 Próximo item:', nextItem.text.slice(0, 50));
 
-  // ========== FALAR UM ITEM ==========
-  const speakItem = useCallback((item: QueueItem) => {
-    console.log('🔵 speakItem CHAMADO para:', item.text.slice(0, 50));
+      // Falar o item
+      speakItemInternal(nextItem);
 
-    // VERIFICAÇÕES RÍGIDAS
+      // Remover da fila
+      return currentQueue.filter(item => item.id !== nextItem.id);
+    });
+  }, []);
+
+  // ========== FALAR UM ITEM (INTERNO) ==========
+  const speakItemInternal = useCallback((item: QueueItem) => {
+    console.log('🔵 speakItemInternal:', item.text.slice(0, 50));
+
     if (!isEnabledRef.current) {
-      console.log('❌ Voz desabilitada, não vou falar');
-      return;
-    }
-    if (!isUnlockedRef.current) {
-      console.log('❌ TTS não desbloqueado, não vou falar');
-      return;
-    }
-    if (spokenIdsRef.current.has(item.id)) {
-      console.log('❌ Já falei esse ID:', item.id.slice(0, 30));
+      console.log('❌ Voz desabilitada');
+      isProcessingRef.current = false;
       return;
     }
 
-    // Verificar se speechSynthesis existe
+    if (spokenIdsRef.current.has(item.id)) {
+      console.log('❌ Já foi falado:', item.id.slice(0, 30));
+      isProcessingRef.current = false;
+      // Processar próximo
+      setTimeout(() => processNextItem(), 100);
+      return;
+    }
+
     if (!window.speechSynthesis) {
       console.error('❌ speechSynthesis não disponível!');
+      isProcessingRef.current = false;
       return;
     }
 
-    console.log('✅ Todas as verificações passaram, criando utterance...');
-
-    // Cancelar qualquer coisa que esteja tocando
-    window.speechSynthesis.cancel();
+    // Marcar como falado ANTES de começar (evita duplicação)
+    spokenIdsRef.current.add(item.id);
 
     const utterance = new SpeechSynthesisUtterance(item.text);
+    currentUtteranceRef.current = utterance;
 
     if (voiceRef.current) {
       utterance.voice = voiceRef.current;
-      console.log('🎤 Voz selecionada:', voiceRef.current.name);
-    } else {
-      console.log('⚠️ Nenhuma voz selecionada, usando padrão');
     }
 
     utterance.lang = 'en-US';
@@ -258,22 +235,17 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     utterance.volume = 1.0;
 
     utterance.onstart = () => {
-      console.log('🔊 EVENTO ONSTART - Fala INICIADA!');
+      console.log('🔊 INICIOU FALA:', item.text.slice(0, 50));
 
-      // VERIFICAR NOVAMENTE se ainda está habilitado
       if (!isEnabledRef.current) {
-        console.log('❌ Voz foi desabilitada, cancelando');
+        console.log('❌ Voz desabilitada durante fala, cancelando');
         window.speechSynthesis.cancel();
         return;
       }
 
-      console.log('🎤 LENDO:', item.text.slice(0, 80), '...');
       setIsSpeaking(true);
       isSpeakingRef.current = true;
       setCurrentId(item.id);
-
-      // Marcar como falado IMEDIATAMENTE
-      spokenIdsRef.current.add(item.id);
 
       window.dispatchEvent(new CustomEvent('character-speak-start', {
         detail: { text: item.text }
@@ -281,134 +253,221 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     };
 
     utterance.onend = () => {
-      console.log('✅ EVENTO ONEND - Fala TERMINADA!');
-      console.log('✅ ID lido:', item.id.slice(0, 30));
+      console.log('✅ TERMINOU FALA:', item.id.slice(0, 30));
+      
       setIsSpeaking(false);
       isSpeakingRef.current = false;
       setCurrentId(null);
+      isProcessingRef.current = false;
+      currentUtteranceRef.current = null;
+
       window.dispatchEvent(new CustomEvent('character-speak-end'));
+
+      // Processar próximo item após 3 segundos
+      if (isEnabledRef.current) {
+        console.log('⏱️ Aguardando 3s para próximo item...');
+        processingTimeoutRef.current = setTimeout(() => {
+          processNextItem();
+        }, 3000);
+      }
     };
 
     utterance.onerror = (e) => {
-      console.error('❌ EVENTO ONERROR - Erro TTS:', e.error);
-      if (e.error !== 'interrupted' && e.error !== 'canceled') {
-        console.error('❌ Erro crítico:', e);
-      }
+      console.error('❌ ERRO TTS:', e.error);
+      
       setIsSpeaking(false);
       isSpeakingRef.current = false;
       setCurrentId(null);
+      isProcessingRef.current = false;
+      currentUtteranceRef.current = null;
+
       window.dispatchEvent(new CustomEvent('character-speak-end'));
+
+      // Tentar próximo item após erro (exceto se foi cancelado intencionalmente)
+      if (e.error !== 'interrupted' && e.error !== 'canceled' && isEnabledRef.current) {
+        processingTimeoutRef.current = setTimeout(() => {
+          processNextItem();
+        }, 1000);
+      }
     };
 
-    console.log('📢 CHAMANDO window.speechSynthesis.speak()...');
+    console.log('📢 Chamando speechSynthesis.speak()...');
     window.speechSynthesis.speak(utterance);
-    console.log('📢 speak() CHAMADO! Aguardando eventos onstart/onend...');
-  }, []);
+  }, [processNextItem]);
 
-  // ========== PROCESSAR FILA AUTOMATICAMENTE ==========
+  // ========== INICIAR PROCESSAMENTO DA FILA ==========
+  const startProcessing = useCallback(() => {
+    console.log('🚀 startProcessing chamado');
+    
+    if (isProcessingRef.current) {
+      console.log('⚠️ Já está processando, ignorando');
+      return;
+    }
+
+    if (!isEnabledRef.current) {
+      console.log('⏸️ Voz desabilitada');
+      return;
+    }
+
+    if (!isUnlockedRef.current) {
+      console.log('🔒 TTS não desbloqueado');
+      return;
+    }
+
+    isProcessingRef.current = true;
+    processNextItem();
+  }, [processNextItem]);
+
+  // ========== EFEITO PARA INICIAR PROCESSAMENTO ==========
   useEffect(() => {
-    // Debug: Mostrar estado atual
     if (queue.length > 0) {
       console.log(`📋 Fila: ${queue.length} items | enabled: ${isEnabled} | unlocked: ${isUnlocked} | speaking: ${isSpeaking}`);
     }
 
-    if (!isEnabled) {
-      console.log('⏸️ Voz desabilitada, fila pausada');
-      return;
+    // Só iniciar se todas as condições forem atendidas
+    if (isEnabled && isUnlocked && !isSpeaking && queue.length > 0 && !isProcessingRef.current) {
+      console.log('🚀 Condições atendidas, iniciando processamento...');
+      
+      // Pequeno delay para evitar race conditions
+      const timer = setTimeout(() => {
+        startProcessing();
+      }, 100);
+
+      return () => clearTimeout(timer);
     }
+  }, [queue.length, isSpeaking, isEnabled, isUnlocked, startProcessing]);
 
-    if (!isUnlocked) {
-      console.log('🔒 Voz não desbloqueada ainda, aguardando interação do usuário...');
-      console.log(`⏳ ${queue.length} items na fila aguardando desbloqueio`);
-      console.log('💡 DICA: Clique, mova o mouse ou role a página para ativar a voz');
-      return;
+  // ========== TOGGLE VOZ (MUTE/UNMUTE) ==========
+  const toggleVoice = useCallback(() => {
+    console.log('========== TOGGLE VOICE ==========');
+    console.log('Estado atual:', { isEnabled: isEnabledRef.current, isSpeaking: isSpeakingRef.current, queueLength: queue.length });
+
+    if (isEnabledRef.current) {
+      // ===== MUTANDO =====
+      console.log('>>> MUTANDO <<<');
+
+      // 1. Limpar timeout pendente
+      if (processingTimeoutRef.current) {
+        clearTimeout(processingTimeoutRef.current);
+        processingTimeoutRef.current = null;
+      }
+
+      // 2. Cancelar TTS atual
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+
+      // 3. Resetar estados
+      setIsSpeaking(false);
+      isSpeakingRef.current = false;
+      isProcessingRef.current = false;
+      setCurrentId(null);
+      currentUtteranceRef.current = null;
+
+      // 4. Desabilitar voz
+      setIsEnabled(false);
+      isEnabledRef.current = false;
+
+      // 5. Disparar evento
+      window.dispatchEvent(new CustomEvent('character-speak-end'));
+
+      console.log('✅ Voz MUTADA (fila preservada com', queue.length, 'items)');
+
+    } else {
+      // ===== DESMUTANDO =====
+      console.log('>>> DESMUTANDO <<<');
+
+      // 1. Habilitar voz
+      setIsEnabled(true);
+      isEnabledRef.current = true;
+
+      // 2. Resetar flags
+      isProcessingRef.current = false;
+      isSpeakingRef.current = false;
+      setIsSpeaking(false);
+
+      // 3. Re-desbloquear TTS (browsers podem bloquear após pausa)
+      console.log('🔓 Re-desbloqueando TTS...');
+      
+      try {
+        // Fala silenciosa para desbloquear
+        const unlock = new SpeechSynthesisUtterance('');
+        unlock.volume = 0;
+        
+        unlock.onend = () => {
+          console.log('✅ TTS re-desbloqueado');
+          
+          // Garantir que está desbloqueado
+          setIsUnlocked(true);
+          isUnlockedRef.current = true;
+          
+          // Iniciar processamento após pequeno delay
+          setTimeout(() => {
+            console.log('🚀 Retomando fila após unmute...');
+            console.log(`📋 Fila tem ${queue.length} items`);
+            startProcessing();
+          }, 500);
+        };
+
+        unlock.onerror = () => {
+          console.log('⚠️ Erro ao re-desbloquear, tentando novamente...');
+          // Tentar iniciar mesmo assim
+          setTimeout(() => {
+            startProcessing();
+          }, 500);
+        };
+
+        window.speechSynthesis.speak(unlock);
+      } catch (e) {
+        console.error('❌ Erro ao re-desbloquear:', e);
+        // Tentar iniciar mesmo assim
+        setTimeout(() => {
+          startProcessing();
+        }, 500);
+      }
+
+      console.log('✅ Voz DESMUTADA');
     }
+  }, [queue.length, startProcessing]);
 
-    // UNLOCK ACONTECEU! Processar fila imediatamente
-    if (isUnlocked && queue.length > 0 && !isSpeaking) {
-      console.log('🚀 VOZ DESBLOQUEADA! Processando fila agora...');
-    }
-
-    if (isSpeaking) {
-      // Se está falando, aguardar terminar
-      console.log('🔇 Já está falando, aguardando terminar...');
-      return;
-    }
-
-    if (queue.length === 0) {
-      return;
-    }
-
-    console.log(`📋 Processando fila (${queue.length} items)`);
-
-    // Pegar o PRIMEIRO item que ainda não foi falado
-    const nextItem = queue.find(item => !spokenIdsRef.current.has(item.id));
-
-    if (!nextItem) {
-      console.log('✅ Todos os items já foram lidos');
-      setQueue([]);
-      return;
-    }
-
-    console.log('🎯 Próximo:', nextItem.text.slice(0, 50), '...');
-
-    // Intervalo entre leituras: 3 segundos
-    // Se for o PRIMEIRO item e acabou de desbloquear, ler IMEDIATAMENTE
-    const READING_INTERVAL = 3000; // 3 segundos fixos
-    const isFirstAfterUnlock = spokenIdsRef.current.size === 0;
-    const delay = isFirstAfterUnlock ? 0 : READING_INTERVAL; // IMEDIATO se for o primeiro
-
-    console.log(`⏱️ Delay: ${delay}ms ${isFirstAfterUnlock ? '(PRIMEIRO - IMEDIATO)' : '(próximos - 3s)'}`);
-
-    // Usar setTimeout sem cleanup para não cancelar
-    setTimeout(() => {
-      console.log('🔊 INICIANDO FALA AGORA...');
-      // Remover da fila ANTES de falar
-      setQueue(prev => prev.filter(item => item.id !== nextItem.id));
-      // Falar
-      speakItem(nextItem);
-    }, delay);
-  }, [queue, isSpeaking, isEnabled, isUnlocked, speakItem]);
-
-  // ========== ADICIONAR À FILA COM PRIORIDADE ==========
+  // ========== ADICIONAR À FILA ==========
   const addToQueue = useCallback((text: string, id: string, priority: boolean = false) => {
-    if (!isEnabledRef.current) {
-      return;
-    }
-
-    // NUNCA adicionar se já foi falado
+    // Permitir adicionar mesmo se desabilitado (para acumular na fila)
+    
     if (spokenIdsRef.current.has(id)) {
-      console.log('⏭️ Já foi lido, ignorando:', id.slice(0, 30));
-      return;
+      return; // Já foi falado
     }
 
-    // NUNCA adicionar se já foi adicionado à fila
     if (addedToQueueRef.current.has(id)) {
-      console.log('⏭️ Já na fila, ignorando:', id.slice(0, 30));
-      return;
+      return; // Já na fila
     }
 
     console.log(`➕ Adicionando ${priority ? '(PRIORIDADE)' : ''}:`, id.slice(0, 40));
 
-    // Marcar como adicionado
     addedToQueueRef.current.add(id);
 
-    if (priority) {
-      // NEWS NOVA! PRIORIDADE MÁXIMA
-      console.log('🚨 NEWS NOVA DETECTADA! Interrompendo leitura atual...');
+    if (priority && isEnabledRef.current) {
+      console.log('🚨 NEWS NOVA! Interrompendo leitura atual...');
 
-      // Parar o que está falando
+      // Limpar timeout pendente
+      if (processingTimeoutRef.current) {
+        clearTimeout(processingTimeoutRef.current);
+        processingTimeoutRef.current = null;
+      }
+
+      // Cancelar fala atual
       if (isSpeakingRef.current) {
         window.speechSynthesis.cancel();
         setIsSpeaking(false);
         isSpeakingRef.current = false;
+        isProcessingRef.current = false;
         setCurrentId(null);
       }
 
-      // Adicionar NO INÍCIO da fila
+      // Adicionar no início
       setQueue(prev => [{ id, text }, ...prev]);
     } else {
-      // Adicionar no final da fila
+      // Adicionar no final
       setQueue(prev => [...prev, { id, text }]);
     }
   }, []);
@@ -420,10 +479,21 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Parar o que está falando
-    stopEverything();
-
     console.log('🎯 LEITURA MANUAL:', text.slice(0, 40));
+
+    // Limpar timeout e cancelar fala atual
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+      processingTimeoutRef.current = null;
+    }
+
+    window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+    isSpeakingRef.current = false;
+    isProcessingRef.current = false;
+
+    // Marcar como falado
+    spokenIdsRef.current.add(id);
 
     const utterance = new SpeechSynthesisUtterance(text);
 
@@ -442,13 +512,9 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      console.log('🎤 Lendo (manual):', text.slice(0, 50));
       setIsSpeaking(true);
       isSpeakingRef.current = true;
       setCurrentId(id);
-
-      // Marcar como falado
-      spokenIdsRef.current.add(id);
 
       window.dispatchEvent(new CustomEvent('character-speak-start', {
         detail: { text }
@@ -456,11 +522,17 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     };
 
     utterance.onend = () => {
-      console.log('✅ Terminou (manual)');
       setIsSpeaking(false);
       isSpeakingRef.current = false;
       setCurrentId(null);
       window.dispatchEvent(new CustomEvent('character-speak-end'));
+
+      // Retomar fila após fala manual
+      if (isEnabledRef.current) {
+        processingTimeoutRef.current = setTimeout(() => {
+          processNextItem();
+        }, 3000);
+      }
     };
 
     utterance.onerror = (e) => {
@@ -474,17 +546,46 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     };
 
     window.speechSynthesis.speak(utterance);
-  }, [stopEverything]);
+  }, [processNextItem]);
+
+  // ========== STOP ==========
+  const stop = useCallback(() => {
+    console.log('🛑 STOP chamado');
+
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+      processingTimeoutRef.current = null;
+    }
+
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+
+    setIsSpeaking(false);
+    isSpeakingRef.current = false;
+    isProcessingRef.current = false;
+    setCurrentId(null);
+    setQueue([]);
+
+    window.dispatchEvent(new CustomEvent('character-speak-end'));
+  }, []);
 
   // Verificar se já foi lido
   const hasBeenSpoken = useCallback((id: string) => {
     return spokenIdsRef.current.has(id);
   }, []);
 
-  // STOP público (usa stopEverything)
-  const stop = useCallback(() => {
-    stopEverything();
-  }, [stopEverything]);
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (processingTimeoutRef.current) {
+        clearTimeout(processingTimeoutRef.current);
+      }
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
 
   return (
     <VoiceContext.Provider value={{
