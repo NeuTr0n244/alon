@@ -88,8 +88,8 @@ export function NewTokensColumn() {
 
               {/* Right */}
               <div className={styles.cardRight}>
-                {token.marketCapFormatted && (
-                  <div className={styles.cardMC}>MC {token.marketCapFormatted}</div>
+                {token.marketCap && token.marketCap > 0 && (
+                  <div className={styles.cardMC}>MC ${(token.marketCap / 1000).toFixed(1)}K</div>
                 )}
               </div>
             </div>

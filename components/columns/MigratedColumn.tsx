@@ -35,7 +35,7 @@ export function MigratedColumn() {
               className="flex items-center gap-3 p-3 rounded-lg hover:bg-[#111] cursor-pointer transition-colors mb-1"
               onClick={() => window.open(`https://pump.fun/coin/${token.mint}`, '_blank')}
             >
-              <TokenImage src={token.image} symbol={token.symbol} size={40} />
+              <TokenImage src={token.image || null} symbol={token.symbol} size={40} />
 
               <div className="flex-1 min-w-0">
                 <div className="text-white font-medium text-sm truncate">{token.name}</div>
@@ -45,7 +45,7 @@ export function MigratedColumn() {
                 </div>
               </div>
 
-              {token.marketCap > 0 && (
+              {token.marketCap && token.marketCap > 0 && (
                 <div className="text-right">
                   <div className="text-sm text-[#00ff00] font-medium">
                     MC {(token.marketCap / 1000).toFixed(1)}K SOL
