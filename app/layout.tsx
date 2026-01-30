@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { VoiceProvider } from '@/contexts/VoiceContext';
+import { Header } from '@/components/layout/Header';
 
 export const metadata: Metadata = {
   title: 'ALON TERMINAL',
@@ -23,7 +24,10 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <VoiceProvider>
-          {children}
+          <Header />
+          <main style={{ paddingTop: '60px' }}>
+            {children}
+          </main>
         </VoiceProvider>
       </body>
     </html>

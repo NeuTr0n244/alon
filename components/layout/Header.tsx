@@ -8,8 +8,10 @@ export function Header() {
   const { isEnabled, isSpeaking, toggleVoice } = useVoice();
   const [activeTab, setActiveTab] = useState('trenches');
   const [showProfile, setShowProfile] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const connectWallet = async () => {
     setIsConnecting(true);
@@ -41,9 +43,25 @@ export function Header() {
     setWalletAddress(null);
   };
 
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      const trimmed = searchQuery.trim();
+      if (trimmed.length >= 32) {
+        // Contract Address
+        window.open(`https://pump.fun/coin/${trimmed}`, '_blank');
+      } else {
+        // Token name
+        window.open(`https://pump.fun/?search=${encodeURIComponent(trimmed)}`, '_blank');
+      }
+      setSearchQuery('');
+    }
+  };
+
   return (
     <>
-      <header className="flex justify-between items-center px-5 py-2.5 bg-[#0a0a0a] border-b border-[#1a1a1a] sticky top-0 z-[100]">
+      <header className="fixed top-0 left-0 right-0 bg-[#0a0a0a] border-b border-[#1a1a1a] z-[9999]">
+        <div className="flex justify-between items-center px-5 py-2.5">
         {/* Left Side - Logo + Nav */}
         <div className="flex items-center gap-8">
           {/* Logo */}
@@ -87,8 +105,29 @@ export function Header() {
           </nav>
         </div>
 
-        {/* Right Side - Buttons */}
+        {/* Right Side - Search, Buttons */}
         <div className="flex items-center gap-2.5">
+          {/* Paste CA / Search */}
+          <form onSubmit={handleSearch} className="flex items-center gap-2">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Paste CA or search..."
+              className="w-[200px] px-3 py-1.5 text-xs bg-[#111] border border-[#333] rounded-lg text-white placeholder-[#666] focus:border-[#00ff00] focus:outline-none transition-colors"
+            />
+            <button
+              type="submit"
+              className="w-9 h-9 flex items-center justify-center rounded-lg bg-[#111] border border-[#333] text-[#888] hover:bg-[#1a1a1a] hover:text-white transition-all"
+              title="Search"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.35-4.35"/>
+              </svg>
+            </button>
+          </form>
+
           {/* Voice Button */}
           <button
             onClick={toggleVoice}
@@ -101,6 +140,18 @@ export function Header() {
             `}
           >
             {isSpeaking ? '🔊' : isEnabled ? '🔈' : '🔇'}
+          </button>
+
+          {/* Settings Button */}
+          <button
+            onClick={() => setShowSettings(true)}
+            title="Settings"
+            className="w-9 h-9 flex items-center justify-center rounded-lg bg-[#111] border border-[#333] text-[#888] hover:bg-[#1a1a1a] hover:text-white transition-all"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M12 1v6m0 6v6M1 12h6m6 0h6m-2.636-7.364l-4.242 4.242m0 4.242l4.242 4.242M6.636 6.636l4.242 4.242m0 4.242L6.636 19.364"/>
+            </svg>
           </button>
 
           {/* Profile Button */}
@@ -142,6 +193,7 @@ export function Header() {
               {isConnecting ? 'Connecting...' : 'Connect Wallet'}
             </button>
           )}
+        </div>
         </div>
       </header>
 

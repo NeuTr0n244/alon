@@ -13,7 +13,7 @@ interface VoiceContextType {
   isEnabled: boolean;
   isUnlocked: boolean;
   queueLength: number;
-  addToQueue: (text: string, id: string) => void;
+  addToQueue: (text: string, id: string, priority?: boolean) => void;
   speakNow: (text: string, id: string) => void;
   stop: () => void;
   toggleVoice: () => void;
@@ -274,7 +274,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     window.speechSynthesis.speak(utterance);
   }, []);
 
-  // ========== PROCESSAR FILA ==========
+  // ========== PROCESSAR FILA AUTOMATICAMENTE ==========
   useEffect(() => {
     // Debug: Mostrar estado atual
     if (queue.length > 0) {
@@ -299,6 +299,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     }
 
     if (isSpeaking) {
+      // Se está falando, aguardar terminar
       return;
     }
 
@@ -322,12 +323,20 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     // Remover da fila
     setQueue(prev => prev.filter(item => item.id !== nextItem.id));
 
-    // Falar
-    speakItem(nextItem);
+    // Aguardar 3-5 segundos antes de falar (exceto se for o primeiro da fila)
+    const READING_INTERVAL = Math.floor(Math.random() * 2000) + 3000; // 3-5 segundos
+    const delay = queue.length > 1 ? READING_INTERVAL : 500; // 0.5s para primeiro item
+
+    const timer = setTimeout(() => {
+      // Falar
+      speakItem(nextItem);
+    }, delay);
+
+    return () => clearTimeout(timer);
   }, [queue, isSpeaking, isEnabled, isUnlocked, speakItem]);
 
-  // ========== ADICIONAR À FILA ==========
-  const addToQueue = useCallback((text: string, id: string) => {
+  // ========== ADICIONAR À FILA COM PRIORIDADE ==========
+  const addToQueue = useCallback((text: string, id: string, priority: boolean = false) => {
     if (!isEnabledRef.current) {
       return;
     }
@@ -344,12 +353,29 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    console.log('➕ Adicionando:', id.slice(0, 40));
+    console.log(`➕ Adicionando ${priority ? '(PRIORIDADE)' : ''}:`, id.slice(0, 40));
 
     // Marcar como adicionado
     addedToQueueRef.current.add(id);
 
-    setQueue(prev => [...prev, { id, text }]);
+    if (priority) {
+      // NEWS NOVA! PRIORIDADE MÁXIMA
+      console.log('🚨 NEWS NOVA DETECTADA! Interrompendo leitura atual...');
+
+      // Parar o que está falando
+      if (isSpeakingRef.current) {
+        window.speechSynthesis.cancel();
+        setIsSpeaking(false);
+        isSpeakingRef.current = false;
+        setCurrentId(null);
+      }
+
+      // Adicionar NO INÍCIO da fila
+      setQueue(prev => [{ id, text }, ...prev]);
+    } else {
+      // Adicionar no final da fila
+      setQueue(prev => [...prev, { id, text }]);
+    }
   }, []);
 
   // ========== FALAR IMEDIATAMENTE (MANUAL) ==========

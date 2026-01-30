@@ -163,10 +163,11 @@ export function KnowledgeBase() {
 
             // ======== REGRAS DE LEITURA ========
             if (item.type === 'news') {
-              // NEWS: Ler IMEDIATAMENTE
+              // NEWS NOVA: Ler IMEDIATAMENTE COM PRIORIDADE
               const text = formatTextForSpeech(item);
-              addToQueue(text, item.id);
-              console.log(`📰 NEWS adicionado à fila: ${item.content.slice(0, 50)}`);
+              const isPriority = true; // NEWS NOVA sempre tem prioridade
+              addToQueue(text, item.id, isPriority);
+              console.log(`📰 NEWS NOVA adicionado COM PRIORIDADE: ${item.content.slice(0, 50)}`);
               previousIds.add(item.id);
             }
             else if (item.type === 'alert') {
@@ -203,7 +204,7 @@ export function KnowledgeBase() {
         const newsItems = allItems.filter(item => item.type === 'news');
         const alertItems = allItems.filter(item => item.type === 'alert');
 
-        // Adicionar NEWS à fila
+        // Adicionar NEWS à fila (primeira carga, sem prioridade)
         newsItems.forEach((item, index) => {
           if (hasBeenSpoken(item.id)) {
             console.log(`⏭️ NEWS ${index + 1} já foi lido, pulando`);
@@ -211,7 +212,7 @@ export function KnowledgeBase() {
           }
 
           const text = formatTextForSpeech(item);
-          addToQueue(text, item.id);
+          addToQueue(text, item.id, false); // Primeira carga = sem prioridade
           previousIds.add(item.id);
           console.log(`➕ NEWS ${index + 1} adicionado à fila: ${item.content.slice(0, 40)}...`);
         });
