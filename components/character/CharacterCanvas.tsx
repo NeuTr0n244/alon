@@ -34,10 +34,10 @@ function CharacterWithMouseTracking() {
 
   useFrame(() => {
     if (groupRef.current) {
-      // Horizontal: sem negativo (correto)
-      // Vertical: com negativo (corrigido)
+      // Horizontal: sem negativo
+      // Vertical: com negativo
       targetRotation.current.y = mousePosition.current.x * 0.3;
-      targetRotation.current.x = -mousePosition.current.y * 0.15; // Negativo para inverter vertical
+      targetRotation.current.x = -mousePosition.current.y * 0.15;
 
       groupRef.current.rotation.y +=
         (targetRotation.current.y - groupRef.current.rotation.y) * 0.05;
@@ -55,7 +55,17 @@ function CharacterWithMouseTracking() {
 
 export function CharacterCanvas() {
   return (
-    <div className="w-full h-full relative" style={{ background: '#0d0d0d' }}>
+    <div 
+      className="w-full h-full"
+      style={{ 
+        background: '#0d0d0d',
+        position: 'relative',
+        overflow: 'hidden'
+      }}
+    >
+      {/* Speech Caption - DENTRO do container 3D */}
+      <SpeechCaption />
+      
       <Canvas
         gl={{ antialias: true }}
         dpr={[1, 2]}
@@ -67,9 +77,6 @@ export function CharacterCanvas() {
           <CharacterWithMouseTracking />
         </Suspense>
       </Canvas>
-
-      {/* Speech Caption */}
-      <SpeechCaption />
     </div>
   );
 }
