@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #0d0d0d;
+  --color-card: #1a1a1a;
+  --color-green: #00ff00;
+  --color-red: #ff4444;
+  --color-text: #ffffff;
+  --color-text-secondary: #888888;
+  --color-border: #333333;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #0d0d0d;
+  color: #ffffff;
+}
+
+/* Ajuste de layout para footer fixo */
+main {
+  min-height: calc(100vh - 52px - 44px); /* viewport - header - footer */
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #0d0d0d;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #333333;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #444444;
+}
+
+/* Firefox scrollbar */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #333333 #0d0d0d;
+}
+
+/* Selection */
+::selection {
+  background-color: #00ff00;
+  color: #0d0d0d;
+}
+
+/* Esconder indicador de erros do Next.js em desenvolvimento */
+[data-nextjs-toast],
+[data-nextjs-dialog],
+[data-nextjs-dialog-overlay],
+nextjs-portal {
+  display: none !important;
+}
+
+/* Esconder indicador vermelho de issues */
+#__next-build-indicator,
+[id*="issues"],
+[class*="issues"] {
+  display: none !important;
+}

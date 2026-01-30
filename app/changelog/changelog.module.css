@@ -1,0 +1,172 @@
+/* app/changelog/changelog.module.css - TEMA ESCURO */
+.container {
+  min-height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #0a0a0a;
+  color: #ffffff;
+  font-family: 'Courier New', monospace;
+}
+
+.header {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 24px 32px;
+  border-bottom: 1px solid #1a1a1a;
+  background: #0d0d0d;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.backButton {
+  padding: 8px 16px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 4px;
+  color: #888;
+  text-decoration: none;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.backButton:hover {
+  background: #222;
+  color: #00ff00;
+  border-color: #00ff00;
+}
+
+.label {
+  font-size: 10px;
+  color: #666;
+  letter-spacing: 2px;
+}
+
+.header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 4px 0;
+  letter-spacing: 1px;
+  color: #ffffff;
+}
+
+.subtitle {
+  font-size: 11px;
+  color: #666;
+  letter-spacing: 1px;
+}
+
+.headerRight {
+  text-align: right;
+  font-size: 12px;
+  color: #666;
+  line-height: 1.8;
+}
+
+.tabs {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 32px;
+  background: #111111;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+.tabLabel, .tabRight {
+  font-size: 11px;
+  color: #666;
+  letter-spacing: 1px;
+}
+
+/* LISTA COM SCROLL */
+.list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 32px;
+  max-width: 1000px;
+}
+
+/* Scrollbar estilizada */
+.list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.list::-webkit-scrollbar-track {
+  background: #111;
+}
+
+.list::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+
+.list::-webkit-scrollbar-thumb:hover {
+  background: #444;
+}
+
+.entry {
+  padding: 24px;
+  margin-bottom: 16px;
+  border: 1px solid #1a1a1a;
+  background: #111111;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.entry:hover {
+  background: #161616;
+}
+
+.entryHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.entryDate {
+  font-size: 10px;
+  color: #666;
+  letter-spacing: 1px;
+}
+
+.entryTitle {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 4px 0 0 0;
+  letter-spacing: 1px;
+  color: #ffffff;
+}
+
+.entryTags {
+  display: flex;
+  gap: 8px;
+}
+
+.tag {
+  padding: 4px 10px;
+  font-size: 10px;
+  background: #00ff00;
+  color: #000;
+  letter-spacing: 1px;
+  font-weight: 600;
+}
+
+.entryList {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.entryList li {
+  font-size: 13px;
+  color: #ccc;
+  line-height: 1.8;
+}

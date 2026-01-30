@@ -1,0 +1,178 @@
+/* app/rewards/rewards.module.css */
+
+.container {
+  min-height: 100vh;
+  background: #0a0a0a;
+  padding: 20px;
+}
+
+.header {
+  margin-bottom: 24px;
+}
+
+.header h1 {
+  font-size: 24px;
+  color: #fff;
+  margin: 0 0 8px 0;
+}
+
+.header p {
+  color: #666;
+  font-size: 14px;
+  margin: 0;
+}
+
+.statsCard {
+  background: linear-gradient(135deg, #111 0%, #1a1a1a 100%);
+  border: 1px solid #00ff00;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 32px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.levelBadge {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #00ff00, #00aa00);
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.levelNum {
+  font-size: 32px;
+  font-weight: 700;
+  color: #000;
+  line-height: 1;
+}
+
+.levelLabel {
+  font-size: 10px;
+  font-weight: 600;
+  color: #000;
+  letter-spacing: 1px;
+}
+
+.pointsInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.pointsValue {
+  font-size: 36px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.pointsLabel {
+  font-size: 12px;
+  color: #666;
+  letter-spacing: 2px;
+}
+
+.progressSection {
+  flex: 1;
+}
+
+.progressBar {
+  height: 8px;
+  background: #1a1a1a;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #00ff00, #00cc00);
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.progressText {
+  font-size: 12px;
+  color: #666;
+}
+
+.section {
+  margin-bottom: 32px;
+}
+
+.section h2 {
+  font-size: 16px;
+  color: #fff;
+  margin: 0 0 16px 0;
+}
+
+.missionList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.missionCard {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #111;
+  border: 1px solid #1a1a1a;
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.missionCard:hover:not(.completed) {
+  border-color: #00ff00;
+}
+
+.missionCard.completed {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.missionLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.missionCheck {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #00ff00;
+}
+
+.missionTitle {
+  display: block;
+  font-weight: 500;
+  color: #fff;
+}
+
+.missionDesc {
+  display: block;
+  font-size: 12px;
+  color: #666;
+}
+
+.missionPoints {
+  font-size: 14px;
+  font-weight: 600;
+  color: #00ff00;
+}
+
+@media (max-width: 768px) {
+  .statsCard {
+    flex-direction: column;
+    text-align: center;
+  }
+}
