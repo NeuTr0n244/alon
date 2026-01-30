@@ -85,6 +85,16 @@ const mockMigratedTokens: Token[] = [
   },
 ];
 
+// ========== PROXY URL ==========
+// Usa proxy local para evitar CORS
+function getPumpProxyUrl(params: Record<string, string | number | boolean>): string {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    searchParams.append(key, String(value));
+  });
+  return `/api/pump?${searchParams.toString()}`;
+}
+
 // Buscar de DexScreener
 async function fetchFromDexScreener(): Promise<Token[]> {
   try {
@@ -183,49 +193,61 @@ async function fetchFromBirdeye(): Promise<Token[]> {
 export async function fetchMigratedTokens(limit = 50): Promise<Token[]> {
   console.log('[PumpAPI] 🔍 Iniciando busca de tokens migrados...');
 
-  // Option 1: Pump.fun API com complete=true
+  // Option 1: Pump.fun API via PROXY (complete=true)
   try {
-    const url1 = `https://frontend-api.pump.fun/coins?offset=0&limit=${limit}&sort=last_trade_timestamp&order=DESC&includeNsfw=false&complete=true`;
-    console.log('[PumpAPI] Tentando Pump.fun API (complete=true)...');
+    const url = getPumpProxyUrl({
+      offset: 0,
+      limit,
+      sort: 'last_trade_timestamp',
+      order: 'DESC',
+      includeNsfw: false,
+      complete: true,
+    });
+    
+    console.log('[PumpAPI] Tentando Pump.fun API via proxy (complete=true)...');
 
-    const response1 = await fetch(url1);
+    const response = await fetch(url);
 
-    if (response1.ok) {
-      const data: PumpFunToken[] = await response1.json();
-      const migratedTokens = data.filter(
-        (token) => token.complete === true || token.raydium_pool
-      );
+    if (response.ok) {
+      const data: PumpFunToken[] = await response.json();
+      
+      // Verificar se não é erro
+      if (Array.isArray(data)) {
+        const migratedTokens = data.filter(
+          (token) => token.complete === true || token.raydium_pool
+        );
 
-      if (migratedTokens.length > 0) {
-        console.log('[PumpAPI] ✅ Pump.fun API retornou', migratedTokens.length, 'tokens migrados');
-        return migratedTokens.map((pumpToken) => ({
-          signature: '',
-          mint: pumpToken.mint,
-          name: pumpToken.name,
-          symbol: pumpToken.symbol,
-          uri: pumpToken.metadata_uri || '',
-          description: pumpToken.description,
-          image: pumpToken.image_uri,
-          creator: pumpToken.creator || pumpToken.username,
-          createdAt: pumpToken.created_timestamp * 1000,
-          marketCap: pumpToken.market_cap_sol || pumpToken.market_cap,
-          volume24h: 0,
-          priceUsd: pumpToken.usd_market_cap,
-          priceNative: pumpToken.virtual_sol_reserves && pumpToken.virtual_token_reserves
-            ? pumpToken.virtual_sol_reserves / pumpToken.virtual_token_reserves
-            : 0,
-          twitter: pumpToken.twitter,
-          telegram: pumpToken.telegram,
-          website: pumpToken.website,
-          isMigrated: true,
-          tradeCount: 0,
-          holderCount: 0,
-          replies: pumpToken.reply_count,
-        }));
+        if (migratedTokens.length > 0) {
+          console.log('[PumpAPI] ✅ Pump.fun API retornou', migratedTokens.length, 'tokens migrados');
+          return migratedTokens.map((pumpToken) => ({
+            signature: '',
+            mint: pumpToken.mint,
+            name: pumpToken.name,
+            symbol: pumpToken.symbol,
+            uri: pumpToken.metadata_uri || '',
+            description: pumpToken.description,
+            image: pumpToken.image_uri,
+            creator: pumpToken.creator || pumpToken.username,
+            createdAt: pumpToken.created_timestamp * 1000,
+            marketCap: pumpToken.market_cap_sol || pumpToken.market_cap,
+            volume24h: 0,
+            priceUsd: pumpToken.usd_market_cap,
+            priceNative: pumpToken.virtual_sol_reserves && pumpToken.virtual_token_reserves
+              ? pumpToken.virtual_sol_reserves / pumpToken.virtual_token_reserves
+              : 0,
+            twitter: pumpToken.twitter,
+            telegram: pumpToken.telegram,
+            website: pumpToken.website,
+            isMigrated: true,
+            tradeCount: 0,
+            holderCount: 0,
+            replies: pumpToken.reply_count,
+          }));
+        }
       }
     }
   } catch (error) {
-    console.warn('[PumpAPI] ⚠️ Pump.fun API falhou:', error);
+    console.warn('[PumpAPI] ⚠️ Pump.fun API via proxy falhou:', error);
   }
 
   // Option 2: DexScreener
@@ -285,9 +307,17 @@ export async function fetchMigratedTokens(limit = 50): Promise<Token[]> {
 
 export async function fetchNewTokens(limit = 50): Promise<Token[]> {
   try {
-    const url = `https://frontend-api.pump.fun/coins?offset=0&limit=${limit}&sort=created_timestamp&order=DESC&includeNsfw=false&migrated=false`;
+    // Usar PROXY local para evitar CORS
+    const url = getPumpProxyUrl({
+      offset: 0,
+      limit,
+      sort: 'created_timestamp',
+      order: 'DESC',
+      includeNsfw: false,
+      migrated: false,
+    });
 
-    console.log('[PumpAPI] Fetching new tokens...');
+    console.log('[PumpAPI] Fetching new tokens via proxy...');
 
     const response = await fetch(url);
 
@@ -296,11 +326,17 @@ export async function fetchNewTokens(limit = 50): Promise<Token[]> {
       return [];
     }
 
-    const data: PumpFunToken[] = await response.json();
+    const data = await response.json();
+    
+    // Verificar se é erro ou array válido
+    if (!Array.isArray(data)) {
+      console.error('[PumpAPI] Invalid response:', data);
+      return [];
+    }
 
     console.log('[PumpAPI] Fetched', data.length, 'new tokens');
 
-    const tokens: Token[] = data.map((pumpToken) => ({
+    const tokens: Token[] = data.map((pumpToken: PumpFunToken) => ({
       signature: '',
       mint: pumpToken.mint,
       name: pumpToken.name,
