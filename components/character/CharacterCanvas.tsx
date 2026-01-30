@@ -34,9 +34,10 @@ function CharacterWithMouseTracking() {
 
   useFrame(() => {
     if (groupRef.current) {
-      // Mouse invertido para seguir corretamente
-      targetRotation.current.y = -mousePosition.current.x * 0.3;
-      targetRotation.current.x = -mousePosition.current.y * 0.15;
+      // CORRIGIDO: Invertido para seguir o mouse corretamente
+      // O personagem está rotacionado 180° então precisa inverter
+      targetRotation.current.y = mousePosition.current.x * 0.3;  // Removido o negativo
+      targetRotation.current.x = mousePosition.current.y * 0.15; // Removido o negativo
 
       groupRef.current.rotation.y +=
         (targetRotation.current.y - groupRef.current.rotation.y) * 0.05;
