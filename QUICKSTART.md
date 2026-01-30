@@ -40,7 +40,7 @@ npm run dev
 ## 🎯 What You'll See
 
 ### Header (Top)
-- "Pump Trenches" logo
+- "ALON TERMINAL" logo
 - Connection status (green = connected)
 - Voice toggle button
 - Connect Wallet button
@@ -171,4 +171,4 @@ NEXT_PUBLIC_MAX_TOKENS=100  # keep last N tokens
 
 ## 🎉 Enjoy!
 
-You now have a fully functional Pump.fun Trenches clone with real-time token monitoring and voice announcements!
+You now have a fully functional ALON TERMINAL with real-time token monitoring and voice announcements!

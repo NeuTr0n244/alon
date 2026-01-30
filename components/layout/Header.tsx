@@ -48,8 +48,8 @@ export function Header() {
         <div className="flex items-center gap-8">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 no-underline">
-            <span className="text-lg">🟢</span>
-            <span className="text-[14px] font-bold text-[#00ff00] tracking-wider">TERMINAL</span>
+            <span className="text-[#00ff00] text-xs">●</span>
+            <span className="text-[14px] font-bold text-white tracking-wider font-mono">ALON TERMINAL</span>
           </Link>
 
           {/* Navigation */}

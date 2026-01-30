@@ -1,6 +1,6 @@
-# Pump.fun Trenches Clone
+# ALON TERMINAL
 
-A real-time token monitoring application with a 3D character that announces new tokens using voice and lip sync.
+Real-time crypto intelligence terminal. Live market data, news, and AI-powered insights with a 3D character that announces new tokens using voice and lip sync.
 
 ## Features
 
@@ -37,6 +37,25 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+## 🚀 Deploy Automático
+
+Este projeto está configurado com deploy automático no Vercel via GitHub Actions.
+
+### Comandos Rápidos:
+
+```bash
+# Commit e push automático
+npm run commit "Sua mensagem"
+
+# Build + Commit + Push + Deploy
+npm run ship "Deploy: Nova versão"
+
+# Deploy manual no Vercel
+npm run deploy
+```
+
+📚 **Guia completo:** Veja [DEPLOY.md](./DEPLOY.md) para instruções detalhadas de configuração.
 
 ## Project Structure
 

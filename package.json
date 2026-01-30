@@ -1,12 +1,17 @@
 {
-  "name": "alon",
+  "name": "alon-terminal",
   "version": "1.0.0",
-  "description": "Pump.fun Trenches Clone with 3D Character",
+  "description": "ALON TERMINAL - Real-time crypto intelligence terminal powered by Alon",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "commit": "node scripts/commit.js",
+    "ship": "node scripts/ship.js",
+    "push": "git add . && git push",
+    "deploy": "vercel --prod",
+    "deploy:preview": "vercel"
   },
   "dependencies": {
     "@elevenlabs/elevenlabs-js": "^2.33.0",
