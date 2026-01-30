@@ -103,7 +103,7 @@ export function Header() {
               Rewards
             </Link>
             <Link
-              href="/trenches"
+              href="/"
               className="text-[13px] font-medium text-[#888] hover:text-white transition-colors no-underline"
             >
               Trenches
