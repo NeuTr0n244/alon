@@ -58,23 +58,16 @@ export function Header() {
     }
   };
 
-  // Trending tokens for ticker tape
-  const trendingTokens = [
-    { emoji: '🐭', name: 'Mickey', price: '$3.41K', change: '+12.4%', positive: true },
-    { emoji: '🍎', name: 'AAPL', price: '$1.14M', change: '+8.2%', positive: true },
-    { emoji: '📦', name: 'Amazon', price: '$1.01M', change: '+5.7%', positive: true },
-    { emoji: '💰', name: 'MPP', price: '$3.50K', change: '-2.1%', positive: false },
-    { emoji: '🚀', name: 'Elon', price: '$9.44K', change: '+15.3%', positive: true },
-    { emoji: '🔥', name: 'TRUMP', price: '$2.87K', change: '+22.8%', positive: true },
-    { emoji: '💎', name: 'PEPE', price: '$4.12K', change: '+6.9%', positive: true },
-    { emoji: '🌙', name: 'MOON', price: '$8.33K', change: '-4.2%', positive: false },
-  ];
+  // X Tracker toggle
+  const toggleXTracker = () => {
+    const event = new CustomEvent('toggle-x-tracker');
+    window.dispatchEvent(event);
+  };
 
   return (
     <>
       <header className="fixed top-0 left-0 right-0 bg-[#0a0a0a] border-b border-[#1a1a1a] z-[9999]">
-        {/* Main Header Row */}
-        <div className="flex justify-between items-center px-5 py-2.5 border-b border-[#1a1a1a]">
+        <div className="flex justify-between items-center px-5 py-2.5">
         {/* Left Side - Logo + Nav */}
         <div className="flex items-center gap-8">
           {/* Logo */}
@@ -140,6 +133,17 @@ export function Header() {
               </svg>
             </button>
           </form>
+
+          {/* X Tracker Button */}
+          <button
+            onClick={toggleXTracker}
+            title="X Tracker"
+            className="w-9 h-9 flex items-center justify-center rounded-lg bg-[#111] border border-[#333] text-[#888] hover:bg-[#1a1a1a] hover:text-[#1da1f2] transition-all"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+            </svg>
+          </button>
 
           {/* Voice Button */}
           <button
@@ -207,26 +211,6 @@ export function Header() {
             </button>
           )}
         </div>
-        </div>
-
-        {/* Ticker Tape Row */}
-        <div className="relative overflow-hidden bg-[#0a0a0a] py-2">
-          <div className="flex animate-ticker-scroll whitespace-nowrap">
-            {/* Duplicate tokens twice for seamless loop */}
-            {[...trendingTokens, ...trendingTokens, ...trendingTokens].map((token, index) => (
-              <div
-                key={`${token.name}-${index}`}
-                className="inline-flex items-center gap-2 px-4 py-1.5 mx-2 bg-[#111] border border-[#1a1a1a] rounded-lg hover:border-[#333] transition-colors cursor-pointer"
-              >
-                <span className="text-base">{token.emoji}</span>
-                <span className="text-xs font-bold text-white">{token.name}</span>
-                <span className="text-xs text-[#888]">{token.price}</span>
-                <span className={`text-xs font-semibold ${token.positive ? 'text-[#00ff00]' : 'text-[#ff4444]'}`}>
-                  {token.change}
-                </span>
-              </div>
-            ))}
-          </div>
         </div>
       </header>
 
@@ -296,29 +280,12 @@ export function Header() {
           50% { opacity: 0.4; }
         }
 
-        @keyframes ticker-scroll {
-          0% {
-            transform: translateX(0);
-          }
-          100% {
-            transform: translateX(-33.33%);
-          }
-        }
-
         .animate-pulse-glow {
           animation: pulse-glow 1s infinite;
         }
 
         .animate-blink {
           animation: blink 2s infinite;
-        }
-
-        .animate-ticker-scroll {
-          animation: ticker-scroll 30s linear infinite;
-        }
-
-        .animate-ticker-scroll:hover {
-          animation-play-state: paused;
         }
       `}</style>
     </>

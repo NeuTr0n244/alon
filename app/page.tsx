@@ -2,11 +2,12 @@
 
 import { WebSocketProvider } from '@/components/providers/WebSocketProvider';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { TrenchesColumn } from '@/components/columns/TrenchesColumn';
+import { NewTokensColumn } from '@/components/columns/NewTokensColumn';
 import { KnowledgeBase } from '@/components/KnowledgeBase';
 import { CharacterCanvas } from '@/components/character/CharacterCanvas';
 import { VoiceUnlockPrompt } from '@/components/VoiceUnlockPrompt';
 import { XTrackerWidget } from '@/components/XTrackerWidget';
+import { SocialFooter } from '@/components/SocialFooter';
 
 function CharacterColumn() {
   return <CharacterCanvas />;
@@ -17,8 +18,9 @@ export default function Home() {
     <WebSocketProvider>
       <VoiceUnlockPrompt />
       <XTrackerWidget />
+      <SocialFooter />
       <MainLayout
-        leftColumn={<TrenchesColumn />}
+        leftColumn={<NewTokensColumn />}
         centerColumn={<CharacterColumn />}
         rightColumn={<KnowledgeBase />}
       />

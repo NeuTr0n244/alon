@@ -25,7 +25,7 @@ export default function RootLayout({
       <body>
         <VoiceProvider>
           <Header />
-          <main style={{ paddingTop: '100px' }}>
+          <main style={{ paddingTop: '60px' }}>
             {children}
           </main>
         </VoiceProvider>

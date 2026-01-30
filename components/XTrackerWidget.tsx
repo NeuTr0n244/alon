@@ -15,13 +15,36 @@ interface Tweet {
 export function XTrackerWidget() {
   const [tweets, setTweets] = useState<Tweet[]>([]);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [isVisible, setIsVisible] = useState(true);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isVisible, setIsVisible] = useState(false); // Começa fechado
+  const [isLoading, setIsLoading] = useState(false);
   const [position, setPosition] = useState({ x: 20, y: 150 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
   const widgetRef = useRef<HTMLDivElement>(null);
+
+  // Carregar preferência do localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('xTrackerVisible');
+    if (saved === 'true') {
+      setIsVisible(true);
+    }
+  }, []);
+
+  // Salvar preferência quando mudar
+  useEffect(() => {
+    localStorage.setItem('xTrackerVisible', String(isVisible));
+  }, [isVisible]);
+
+  // Escutar evento de toggle do header
+  useEffect(() => {
+    const handleToggle = () => {
+      setIsVisible(prev => !prev);
+    };
+
+    window.addEventListener('toggle-x-tracker', handleToggle);
+    return () => window.removeEventListener('toggle-x-tracker', handleToggle);
+  }, []);
 
   // Fetch tweets
   const fetchTweets = async () => {
@@ -37,14 +60,17 @@ export function XTrackerWidget() {
     }
   };
 
+  // Só buscar tweets quando visível
   useEffect(() => {
+    if (!isVisible) return;
+
     fetchTweets();
 
     // Auto-refresh a cada 60 segundos
     const interval = setInterval(fetchTweets, 60000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isVisible]);
 
   // Drag handlers
   const handleMouseDown = (e: React.MouseEvent) => {
