@@ -58,12 +58,6 @@ export function Header() {
     }
   };
 
-  // X Tracker toggle
-  const toggleXTracker = () => {
-    const event = new CustomEvent('toggle-x-tracker');
-    window.dispatchEvent(event);
-  };
-
   return (
     <>
       <header className="fixed top-0 left-0 right-0 bg-[#0a0a0a] border-b border-[#1a1a1a] z-[9999]">
@@ -134,16 +128,18 @@ export function Header() {
             </button>
           </form>
 
-          {/* X Tracker Button */}
-          <button
-            onClick={toggleXTracker}
-            title="X Tracker"
-            className="w-9 h-9 flex items-center justify-center rounded-lg bg-[#111] border border-[#333] text-[#888] hover:bg-[#1a1a1a] hover:text-[#1da1f2] transition-all"
+          {/* X (Twitter) Link */}
+          <a
+            href="https://x.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Follow us on X"
+            className="w-9 h-9 flex items-center justify-center rounded-lg bg-[#111] border border-[#333] text-[#888] hover:bg-[#1a1a1a] hover:text-[#1da1f2] transition-all no-underline"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
             </svg>
-          </button>
+          </a>
 
           {/* Voice Button */}
           <button
