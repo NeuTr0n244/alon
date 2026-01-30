@@ -16,7 +16,6 @@ interface FeedItem {
   timestamp: Date;
   link?: string;
   isNew?: boolean;
-  isManual?: boolean; // Flag para itens manuais
 }
 
 interface NewAlert {
@@ -35,12 +34,13 @@ export function KnowledgeBase() {
 
   const previousItemsRef = useRef<Set<string>>(new Set());
   const isFirstLoad = useRef(true);
-  const manualItemsRef = useRef<FeedItem[]>([]); // Armazena itens manuais
 
   // Controle de alertas (ler a cada 5 minutos)
   const lastAlertReadTime = useRef<number>(Date.now());
   const pendingAlerts = useRef<FeedItem[]>([]);
   const ALERT_INTERVAL = 5 * 60 * 1000; // 5 minutos em ms
+
+  // getPriority removido - não é mais necessário
 
   // Formatar texto para falar baseado no tipo
   const formatTextForSpeech = useCallback((item: FeedItem): string => {
@@ -59,9 +59,8 @@ export function KnowledgeBase() {
       case 'article':
         return `News. ${sourcePrefix}${item.content}`;
       case 'note':
-        return `New note. ${item.content}`;
       case 'insight':
-        return `Insight. ${item.content}`;
+        return `${item.type}. ${item.content}`;
       default:
         return item.content;
     }
@@ -74,17 +73,13 @@ export function KnowledgeBase() {
       type: data.type,
       title: data.content.slice(0, 50),
       content: data.content,
-      source: (data.author || 'YOU').toUpperCase(),
+      source: (data.author || 'ANON').toUpperCase(),
       timestamp: new Date(),
       link: data.url,
       isNew: true,
-      isManual: true, // Marcar como manual
     };
 
     console.log('✏️ Novo conhecimento adicionado:', newItem);
-
-    // Salvar na ref de itens manuais (persiste entre fetches)
-    manualItemsRef.current = [newItem, ...manualItemsRef.current];
 
     // Adicionar no topo do feed
     setItems(prev => [newItem, ...prev]);
@@ -93,7 +88,7 @@ export function KnowledgeBase() {
     if (isEnabled && isUnlocked) {
       const text = formatTextForSpeech(newItem);
       console.log('🚨 INTERROMPENDO para ler mensagem do usuário!');
-      speakNow(text, newItem.id); // INTERROMPE atual e fala AGORA
+      speakNow(text, newItem.id);
     }
   }, [isEnabled, isUnlocked, formatTextForSpeech, speakNow]);
 
@@ -124,19 +119,19 @@ export function KnowledgeBase() {
         fetchTheBlockNews(),
         fetchBBCNews(),
         fetchWiredNews(),
+        // fetch4chanThreads() - REMOVIDO: CORS bloqueado
       ]);
 
-      const fetchedItems = results
+      const allItems = results
         .flat()
         .filter(Boolean)
         .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
       console.log('========== DEBUG FEED ==========');
-      console.log('Items no feed:', fetchedItems.length);
+      console.log('Items no feed:', allItems.length);
       console.log('Voice enabled:', isEnabled);
       console.log('Voice unlocked:', isUnlocked);
-      console.log('Manual items:', manualItemsRef.current.length);
-      console.log('Items:', fetchedItems.slice(0, 10).map((item, i) => `${i + 1}. [${item.type}] ${item.content.slice(0, 30)}...`));
+      console.log('Items:', allItems.slice(0, 10).map((item, i) => `${i + 1}. [${item.type}] ${item.content.slice(0, 30)}...`));
       console.log('================================');
 
       // Verificar novos itens
@@ -144,7 +139,7 @@ export function KnowledgeBase() {
 
       if (!isFirstLoad.current) {
         // Encontrar itens NOVOS
-        const brandNewItems = fetchedItems.filter(item => !previousIds.has(item.id));
+        const brandNewItems = allItems.filter(item => !previousIds.has(item.id));
 
         if (brandNewItems.length > 0) {
           console.log(`📢 ${brandNewItems.length} novos itens detectados!`);
@@ -168,9 +163,10 @@ export function KnowledgeBase() {
 
             // ======== REGRAS DE LEITURA ========
             if (item.type === 'news') {
-              // NEWS NOVA: Ler COM PRIORIDADE (vai pro topo da fila, não interrompe atual)
+              // NEWS NOVA: Ler IMEDIATAMENTE COM PRIORIDADE
               const text = formatTextForSpeech(item);
-              addToQueue(text, item.id, true);
+              const isPriority = true; // NEWS NOVA sempre tem prioridade
+              addToQueue(text, item.id, isPriority);
               console.log(`📰 NEWS NOVA adicionado COM PRIORIDADE: ${item.content.slice(0, 50)}`);
               previousIds.add(item.id);
             }
@@ -199,13 +195,14 @@ export function KnowledgeBase() {
         console.log('🎬 PRIMEIRA CARGA - Adicionando apenas NEWS à fila');
         console.log('Voice enabled:', isEnabled, 'Voice unlocked:', isUnlocked);
 
+        // Aguardar um pouco se a voz não estiver desbloqueada
         if (!isUnlocked) {
           console.log('⏳ Voz não desbloqueada ainda, aguardando interação do usuário...');
         }
 
         // Separar items por tipo
-        const newsItems = fetchedItems.filter(item => item.type === 'news');
-        const alertItems = fetchedItems.filter(item => item.type === 'alert');
+        const newsItems = allItems.filter(item => item.type === 'news');
+        const alertItems = allItems.filter(item => item.type === 'alert');
 
         // Adicionar NEWS à fila (primeira carga, sem prioridade)
         newsItems.forEach((item, index) => {
@@ -215,7 +212,7 @@ export function KnowledgeBase() {
           }
 
           const text = formatTextForSpeech(item);
-          addToQueue(text, item.id, false);
+          addToQueue(text, item.id, false); // Primeira carga = sem prioridade
           previousIds.add(item.id);
           console.log(`➕ NEWS ${index + 1} adicionado à fila: ${item.content.slice(0, 40)}...`);
         });
@@ -229,7 +226,7 @@ export function KnowledgeBase() {
         });
 
         // Marcar outros tipos como vistos (mas não ler)
-        fetchedItems
+        allItems
           .filter(item => item.type !== 'news' && item.type !== 'alert')
           .forEach(item => previousIds.add(item.id));
 
@@ -237,15 +234,7 @@ export function KnowledgeBase() {
       }
 
       isFirstLoad.current = false;
-      
-      // IMPORTANTE: Preservar itens manuais ao atualizar
-      setItems(prev => {
-        // Combinar: itens manuais (ref) + itens do fetch
-        const allItems = [...manualItemsRef.current, ...fetchedItems];
-        
-        // Ordenar por timestamp (mais recentes primeiro)
-        return allItems.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-      });
+      setItems(allItems);
 
     } catch (err) {
       console.error('[KnowledgeBase] Error:', err);
@@ -261,184 +250,194 @@ export function KnowledgeBase() {
     return () => clearInterval(interval);
   }, [fetchAllData]);
 
-  // Filtrar por tipo
-  const [filter, setFilter] = useState<'all' | 'market' | 'news'>('all');
+  // Timer para ler alertas acumulados a cada 5 minutos
+  useEffect(() => {
+    if (!isEnabled || !isUnlocked) return;
 
-  const filteredItems = items.filter(item => {
-    if (filter === 'all') return true;
-    if (filter === 'market') return ['market', 'prediction', 'moonshot', 'alert'].includes(item.type);
-    if (filter === 'news') return ['news', 'article', 'note', 'insight', 'link'].includes(item.type);
-    return true;
-  });
+    const checkAlerts = setInterval(() => {
+      const now = Date.now();
+      const timeSinceLastRead = now - lastAlertReadTime.current;
 
-  // Remover alerta
-  const dismissAlert = useCallback((id: string) => {
+      if (timeSinceLastRead >= ALERT_INTERVAL && pendingAlerts.current.length > 0) {
+        console.log(`⏰ 5 MINUTOS - Lendo ${pendingAlerts.current.length} alertas acumulados`);
+
+        // Anunciar resumo primeiro
+        const summaryText = `Alert summary. ${pendingAlerts.current.length} alerts in the last 5 minutes.`;
+        addToQueue(summaryText, `alert-summary-${now}`);
+
+        // Ler cada alerta
+        pendingAlerts.current.forEach((alert, i) => {
+          if (!hasBeenSpoken(alert.id)) {
+            const text = formatTextForSpeech(alert);
+            addToQueue(text, alert.id);
+            console.log(`🔊 Lendo alerta ${i + 1}: ${alert.content.slice(0, 40)}`);
+          }
+        });
+
+        // Limpar e resetar timer
+        pendingAlerts.current = [];
+        lastAlertReadTime.current = now;
+
+        console.log(`✅ Alertas lidos. Próxima leitura em 5 minutos.`);
+      }
+    }, 60000); // Verificar a cada 1 minuto
+
+    return () => clearInterval(checkAlerts);
+  }, [isEnabled, isUnlocked, addToQueue, formatTextForSpeech, hasBeenSpoken]);
+
+  const dismissAlert = (id: string) => {
     setNewAlerts(prev => prev.filter(a => a.id !== id));
-  }, []);
-
-  // Ícone por tipo
-  const getIcon = (type: string) => {
-    switch (type) {
-      case 'market': return '📊';
-      case 'prediction': return '🔮';
-      case 'news': return '📰';
-      case 'article': return '📰';
-      case 'alert': return '🚨';
-      case 'moonshot': return '🚀';
-      case 'note': return '📝';
-      case 'link': return '🔗';
-      case 'insight': return '💡';
-      default: return '📋';
-    }
   };
 
-  // Cor por tipo
-  const getTypeColor = (type: string) => {
+  const getIcon = (type: string, source?: string) => {
+    // Por fonte específica
+    if (source?.includes('BBC')) return '📺';
+    if (source?.includes('WIRED')) return '⚡';
+    if (source?.includes('DECRYPT')) return '🔐';
+    if (source?.includes('BLOCK')) return '🧱';
+    if (source?.includes('COINGECKO')) return '🦎';
+    if (source?.includes('DEXSCREENER')) return '📊';
+    if (source?.includes('COINTELEGRAPH')) return '💎';
+
+    // Por tipo
     switch (type) {
-      case 'market': return '#3b82f6';
-      case 'prediction': return '#8b5cf6';
-      case 'news': return '#10b981';
-      case 'article': return '#10b981';
-      case 'alert': return '#ef4444';
-      case 'moonshot': return '#f59e0b';
-      case 'note': return '#ec4899';
-      case 'link': return '#06b6d4';
-      case 'insight': return '#14b8a6';
-      default: return '#6b7280';
+      case 'prediction': return '🔮';
+      case 'market': return '📈';
+      case 'news': return '📰';
+      case 'alert': return '🚨';
+      case 'moonshot': return '🚀';
+      default: return '📌';
     }
   };
 
   return (
     <div className={styles.container}>
-      {/* Alert banners */}
-      <div className={styles.alertBanners}>
-        {newAlerts.map((alert) => (
-          <div key={alert.id} className={styles.alertBanner}>
-            <span className={styles.alertIcon}>🚨</span>
-            <span className={styles.alertText}>{alert.title}</span>
-            {alert.link && (
-              <Link href={alert.link} target="_blank" className={styles.alertLink}>
-                View →
-              </Link>
-            )}
-            <button
-              className={styles.alertDismiss}
-              onClick={() => dismissAlert(alert.id)}
-            >
-              ×
-            </button>
-          </div>
-        ))}
-      </div>
+      {/* ALERTAS DE NOVAS NOTÍCIAS - TOPO */}
+      {newAlerts.length > 0 && (
+        <div className={styles.alertsContainer}>
+          {newAlerts.map(alert => (
+            <div key={alert.id} className={styles.alertCard}>
+              <span className={styles.alertIcon}>🆕</span>
+              <span className={styles.alertText}>{alert.title}</span>
+              {alert.link && (
+                <a
+                  href={alert.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.alertLink}
+                >
+                  View →
+                </a>
+              )}
+              <button
+                className={styles.alertDismiss}
+                onClick={() => dismissAlert(alert.id)}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Header */}
       <div className={styles.header}>
-        <h2 className={styles.title}>Knowledge Base</h2>
-        <span className={styles.liveBadge}>● LIVE</span>
+        <h2>Knowledge Base</h2>
+        <div className={styles.liveIndicator}>
+          <span className={styles.liveDot}></span>
+          LIVE
+        </div>
       </div>
 
-      {/* Filter tabs */}
-      <div className={styles.filterTabs}>
-        <button
-          className={`${styles.filterTab} ${filter === 'all' ? styles.active : ''}`}
-          onClick={() => setFilter('all')}
-        >
-          📋 View Market
-        </button>
-        <button
-          className={`${styles.filterTab} ${filter === 'news' ? styles.active : ''}`}
-          onClick={() => setFilter('news')}
-        >
-          📰 View News
-        </button>
-        <button
-          className={styles.filterTab}
-          onClick={() => window.open('https://github.com/your-repo/changelog', '_blank')}
-        >
-          📝 Changelog
-        </button>
+      {/* Quick Actions */}
+      <div className={styles.quickActions}>
+        <Link href="/market">📊 View Market</Link>
+        <Link href="/news">📰 View News</Link>
+        <Link href="/changelog">📋 Changelog</Link>
       </div>
 
-      {/* Auto-update indicator */}
-      <div className={styles.updateIndicator}>
-        <span className={styles.updateDot}></span>
+      {/* Status de atualização */}
+      <div className={styles.updateStatus}>
+        <span className={styles.updateIcon}>🔄</span>
         Auto-updating every 30s...
       </div>
 
-      {/* Feed items */}
+      {/* Feed */}
       <div className={styles.feed}>
         {loading ? (
-          <div className={styles.loading}>Loading knowledge...</div>
-        ) : filteredItems.length === 0 ? (
-          <div className={styles.empty}>No items yet</div>
+          <div className={styles.loading}>
+            <div className={styles.spinner}></div>
+            <span>Fetching latest data...</span>
+          </div>
         ) : (
-          filteredItems.slice(0, 25).map((item) => (
-            <div
+          items.map((item) => (
+            <article
               key={item.id}
-              className={`${styles.feedItem} ${item.isNew ? styles.newItem : ''} ${currentId === item.id ? styles.reading : ''} ${item.isManual ? styles.manualItem : ''}`}
+              className={`${styles.post} ${item.isNew ? styles.newPost : ''} ${currentId === item.id ? styles.reading : ''}`}
               onClick={() => handleItemClick(item)}
-              style={{ borderLeftColor: getTypeColor(item.type) }}
+              style={{ cursor: 'pointer' }}
             >
-              <div className={styles.itemHeader}>
-                <span className={styles.itemIcon}>{getIcon(item.type)}</span>
-                <span
-                  className={styles.itemType}
-                  style={{ color: getTypeColor(item.type) }}
-                >
-                  {item.type.toUpperCase()}
-                </span>
-                {item.isNew && <span className={styles.newBadge}>NEW</span>}
-                {currentId === item.id && (
-                  <span className={styles.readingBadge}>🔊 READING</span>
+              {item.isNew && <span className={styles.newBadge}>NEW</span>}
+              {currentId === item.id && (
+                <span className={styles.readingBadge}>🔊 READING</span>
+              )}
+
+              {/* Post Header */}
+              <div className={styles.postHeader}>
+                <span className={styles.postIcon}>{getIcon(item.type, item.source)}</span>
+                <span className={styles.postType}>{item.type.toUpperCase()}</span>
+              </div>
+
+              {/* Post Content */}
+              <div className={styles.postContent}>
+                <p>{item.content}</p>
+                {item.link && (
+                  <a
+                    href={item.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={styles.postLink}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    ({item.link})
+                  </a>
                 )}
               </div>
 
-              <p className={styles.itemContent}>{item.content}</p>
-
-              {item.link && (
-                <Link
-                  href={item.link}
-                  target="_blank"
-                  className={styles.itemLink}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  ({item.link.slice(0, 60)}...)
-                </Link>
-              )}
-
-              <div className={styles.itemFooter}>
-                <span className={styles.itemSource}>{item.source}</span>
-                <span className={styles.itemTime}>
-                  {item.timestamp.toLocaleDateString()}
+              {/* Post Footer */}
+              <div className={styles.postFooter}>
+                <span className={styles.postSource}>{item.source}</span>
+                <span className={styles.postTime}>
+                  {item.timestamp.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                  })}
                 </span>
               </div>
-            </div>
+
+              {/* Hint visual de clique */}
+              {currentId !== item.id && (
+                <span className={styles.clickHint}>Click to read aloud</span>
+              )}
+            </article>
           ))
         )}
       </div>
 
-      {/* Add Knowledge Button */}
-      <div className={styles.addSection}>
-        <button
-          className={styles.addButton}
-          onClick={() => setIsModalOpen(true)}
-        >
-          <span className={styles.addIcon}>+</span>
-          <div className={styles.addText}>
-            <span className={styles.addTitle}>ADD KNOWLEDGE</span>
-            <span className={styles.addSubtitle}>EXPAND DATABASE</span>
-          </div>
-        </button>
-      </div>
+      {/* BOTÃO ADD KNOWLEDGE */}
+      <button
+        className={styles.addKnowledgeBtn}
+        onClick={() => setIsModalOpen(true)}
+      >
+        <span className={styles.addIcon}>+</span>
+        <div className={styles.addText}>
+          <span>ADD KNOWLEDGE</span>
+          <span className={styles.addSubtext}>EXPAND DATABASE</span>
+        </div>
+      </button>
 
-      {/* Footer */}
-      <div className={styles.footer}>
-        <Link href="https://docs.example.com" target="_blank">Docs</Link>
-        <Link href="https://twitter.com" target="_blank">Twitter</Link>
-        <Link href="https://discord.com" target="_blank">Discord</Link>
-      </div>
-
-      {/* Modal */}
+      {/* Modal de adicionar */}
       <AddKnowledgeModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -448,7 +447,7 @@ export function KnowledgeBase() {
   );
 }
 
-// ========== FETCH FUNCTIONS ==========
+// ============ API FUNCTIONS ============
 
 async function fetchMarketData(): Promise<FeedItem[]> {
   try {
@@ -666,6 +665,8 @@ async function fetchWiredNews(): Promise<FeedItem[]> {
     return [];
   }
 }
+
+// fetch4chanThreads - REMOVIDO: CORS bloqueado
 
 async function fetchDecryptNews(): Promise<FeedItem[]> {
   try {
