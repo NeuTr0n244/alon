@@ -5,6 +5,7 @@ import { createContext, useContext, useState, useCallback, useEffect, useRef, Re
 interface QueueItem {
   id: string;
   text: string;
+  priority: boolean;
 }
 
 interface VoiceContextType {
@@ -27,7 +28,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [isEnabled, setIsEnabled] = useState(true);
   const [isUnlocked, setIsUnlocked] = useState(false);
-  const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [queueLength, setQueueLength] = useState(0);
 
   const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const spokenIdsRef = useRef<Set<string>>(new Set());
@@ -35,9 +36,14 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
   const isEnabledRef = useRef(true);
   const isUnlockedRef = useRef(false);
   const isSpeakingRef = useRef(false);
-  const isProcessingRef = useRef(false);
   const processingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasUserInteracted = useRef(false);
+  
+  // DUAS FILAS SEPARADAS!
+  // Fila de NEWS (normal, lida em sequência)
+  const newsQueueRef = useRef<QueueItem[]>([]);
+  // Fila PRIORITÁRIA (mensagens do usuário, lida PRIMEIRO após terminar a atual)
+  const priorityQueueRef = useRef<QueueItem[]>([]);
 
   // Inicialização
   useEffect(() => {
@@ -83,113 +89,125 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     return () => { window.speechSynthesis.onvoiceschanged = null; };
   }, []);
 
-  // ========== PROCESSAR FILA ==========
-  const processQueue = useCallback(() => {
-    console.log('🔄 processQueue chamado');
-    console.log(`   Estado: enabled=${isEnabledRef.current}, unlocked=${isUnlockedRef.current}, speaking=${isSpeakingRef.current}, processing=${isProcessingRef.current}`);
+  // Atualizar contagem da fila
+  const updateQueueLength = useCallback(() => {
+    setQueueLength(priorityQueueRef.current.length + newsQueueRef.current.length);
+  }, []);
 
-    if (!isEnabledRef.current || !isUnlockedRef.current || isSpeakingRef.current || isProcessingRef.current) {
-      console.log('⏸️ Condições não atendidas, aguardando...');
+  // ========== FALAR PRÓXIMO ITEM ==========
+  const speakNext = useCallback(() => {
+    console.log('🔄 speakNext chamado');
+    console.log(`   Fila prioritária: ${priorityQueueRef.current.length}, News: ${newsQueueRef.current.length}`);
+
+    // Verificações
+    if (!isEnabledRef.current) {
+      console.log('⏸️ Voz desabilitada');
+      return;
+    }
+    if (!isUnlockedRef.current) {
+      console.log('🔒 TTS não desbloqueado');
+      return;
+    }
+    if (isSpeakingRef.current) {
+      console.log('🔊 Já está falando');
       return;
     }
 
-    setQueue(currentQueue => {
-      // Pegar próximo item que NÃO foi falado ainda
-      const nextItem = currentQueue.find(item => !spokenIdsRef.current.has(item.id));
+    // PRIORIDADE: Primeiro verifica fila prioritária (mensagens do usuário)
+    let nextItem: QueueItem | undefined;
+    
+    if (priorityQueueRef.current.length > 0) {
+      nextItem = priorityQueueRef.current.shift();
+      console.log('🔝 LENDO MENSAGEM PRIORITÁRIA:', nextItem?.text.slice(0, 50));
+    } else if (newsQueueRef.current.length > 0) {
+      nextItem = newsQueueRef.current.shift();
+      console.log('📰 Lendo news:', nextItem?.text.slice(0, 50));
+    }
 
-      if (!nextItem) {
-        console.log('✅ Nenhum item pendente na fila');
-        isProcessingRef.current = false;
-        return currentQueue;
+    if (!nextItem) {
+      console.log('✅ Ambas filas vazias');
+      updateQueueLength();
+      return;
+    }
+
+    updateQueueLength();
+
+    // Marcar como falado
+    spokenIdsRef.current.add(nextItem.id);
+
+    // Criar utterance
+    const utterance = new SpeechSynthesisUtterance(nextItem.text);
+    
+    if (voiceRef.current) {
+      utterance.voice = voiceRef.current;
+    }
+    
+    utterance.lang = 'en-US';
+    utterance.rate = 1.0;
+    utterance.pitch = 0.8;
+    utterance.volume = 1.0;
+
+    const itemId = nextItem.id;
+    const itemText = nextItem.text;
+
+    utterance.onstart = () => {
+      console.log('🔊 COMEÇOU:', itemText.slice(0, 50));
+      setIsSpeaking(true);
+      isSpeakingRef.current = true;
+      setCurrentId(itemId);
+
+      window.dispatchEvent(new CustomEvent('character-speak-start', {
+        detail: { text: itemText }
+      }));
+    };
+
+    utterance.onend = () => {
+      console.log('✅ TERMINOU');
+      setIsSpeaking(false);
+      isSpeakingRef.current = false;
+      setCurrentId(null);
+
+      window.dispatchEvent(new CustomEvent('character-speak-end'));
+
+      // Processar próximo após 2 segundos
+      const totalRemaining = priorityQueueRef.current.length + newsQueueRef.current.length;
+      if (isEnabledRef.current && isUnlockedRef.current && totalRemaining > 0) {
+        console.log(`⏱️ Aguardando 2s... (${priorityQueueRef.current.length} prioritários, ${newsQueueRef.current.length} news)`);
+        processingTimeoutRef.current = setTimeout(() => {
+          speakNext();
+        }, 2000);
+      } else {
+        console.log('📭 Filas vazias');
       }
+    };
 
-      console.log('🎯 Tentando falar:', nextItem.text.slice(0, 50));
-      isProcessingRef.current = true;
+    utterance.onerror = (e) => {
+      console.error('❌ ERRO TTS:', e.error);
+      setIsSpeaking(false);
+      isSpeakingRef.current = false;
+      setCurrentId(null);
 
-      // Tentar falar
-      const utterance = new SpeechSynthesisUtterance(nextItem.text);
-      
-      if (voiceRef.current) {
-        utterance.voice = voiceRef.current;
+      window.dispatchEvent(new CustomEvent('character-speak-end'));
+
+      if (e.error === 'not-allowed') {
+        console.log('🔒 TTS bloqueado');
+        setIsUnlocked(false);
+        isUnlockedRef.current = false;
+      } else if (e.error !== 'interrupted' && e.error !== 'canceled') {
+        processingTimeoutRef.current = setTimeout(() => speakNext(), 1000);
       }
-      
-      utterance.lang = 'en-US';
-      utterance.rate = 1.0;
-      utterance.pitch = 0.8;
-      utterance.volume = 1.0;
+    };
 
-      utterance.onstart = () => {
-        console.log('🔊 COMEÇOU A FALAR:', nextItem.text.slice(0, 50));
-        
-        // SÓ MARCA COMO LIDO AQUI - quando realmente começou a falar!
-        spokenIdsRef.current.add(nextItem.id);
-        
-        setIsSpeaking(true);
-        isSpeakingRef.current = true;
-        setCurrentId(nextItem.id);
-
-        window.dispatchEvent(new CustomEvent('character-speak-start', {
-          detail: { text: nextItem.text }
-        }));
-      };
-
-      utterance.onend = () => {
-        console.log('✅ TERMINOU DE FALAR');
-        
-        setIsSpeaking(false);
-        isSpeakingRef.current = false;
-        setCurrentId(null);
-        isProcessingRef.current = false;
-
-        window.dispatchEvent(new CustomEvent('character-speak-end'));
-
-        // Processar próximo após 3 segundos
-        if (isEnabledRef.current && isUnlockedRef.current) {
-          processingTimeoutRef.current = setTimeout(() => {
-            processQueue();
-          }, 3000);
-        }
-      };
-
-      utterance.onerror = (e) => {
-        console.error('❌ ERRO TTS:', e.error);
-        
-        setIsSpeaking(false);
-        isSpeakingRef.current = false;
-        setCurrentId(null);
-        isProcessingRef.current = false;
-
-        window.dispatchEvent(new CustomEvent('character-speak-end'));
-
-        // Se erro é "not-allowed", NÃO marca como lido - vai tentar de novo
-        if (e.error === 'not-allowed') {
-          console.log('🔒 TTS bloqueado - aguardando interação do usuário');
-          // Marcar como não desbloqueado para tentar de novo
-          setIsUnlocked(false);
-          isUnlockedRef.current = false;
-        } else if (e.error !== 'interrupted' && e.error !== 'canceled') {
-          // Outros erros - tentar próximo item
-          processingTimeoutRef.current = setTimeout(() => {
-            processQueue();
-          }, 1000);
-        }
-      };
-
-      window.speechSynthesis.speak(utterance);
-
-      // Remover da fila visual (mas só marca como lido no onstart)
-      return currentQueue.filter(item => item.id !== nextItem.id);
-    });
-  }, []);
+    window.speechSynthesis.speak(utterance);
+  }, [updateQueueLength]);
 
   // ========== DESBLOQUEAR COM CLIQUE ==========
   const unlockWithClick = useCallback(() => {
-    if (hasUserInteracted.current && isUnlockedRef.current) return;
+    if (isUnlockedRef.current) return;
     
-    console.log('🖱️ Interação detectada - desbloqueando TTS...');
+    console.log('🖱️ Clique detectado - desbloqueando TTS...');
     hasUserInteracted.current = true;
 
-    // Tentar desbloquear com utterance silenciosa
     try {
       const unlock = new SpeechSynthesisUtterance('');
       unlock.volume = 0;
@@ -198,29 +216,18 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
         console.log('✅ TTS DESBLOQUEADO!');
         setIsUnlocked(true);
         isUnlockedRef.current = true;
-        
-        // Processar fila após desbloquear
-        setTimeout(() => {
-          processQueue();
-        }, 100);
+        setTimeout(() => speakNext(), 100);
       };
 
       unlock.onerror = () => {
-        console.log('⚠️ Falha no desbloqueio silencioso, tentando com texto...');
-        
-        // Tentar com texto mínimo
         const unlock2 = new SpeechSynthesisUtterance('.');
         unlock2.volume = 0.01;
         
         unlock2.onend = () => {
-          console.log('✅ TTS DESBLOQUEADO (método 2)!');
+          console.log('✅ TTS DESBLOQUEADO!');
           setIsUnlocked(true);
           isUnlockedRef.current = true;
-          setTimeout(() => processQueue(), 100);
-        };
-
-        unlock2.onerror = () => {
-          console.log('❌ Falha total no desbloqueio');
+          setTimeout(() => speakNext(), 100);
         };
 
         window.speechSynthesis.speak(unlock2);
@@ -230,24 +237,24 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       console.error('❌ Erro ao desbloquear:', e);
     }
-  }, [processQueue]);
+  }, [speakNext]);
 
-  // ========== LISTENER DE CLIQUE GLOBAL ==========
+  // ========== LISTENER DE CLIQUE ==========
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const handleInteraction = () => {
-      unlockWithClick();
+      if (!isUnlockedRef.current) {
+        unlockWithClick();
+      }
     };
-
-    // Múltiplos eventos para capturar qualquer interação
-    const events = ['click', 'touchstart', 'keydown'];
     
+    const events = ['click', 'touchstart', 'keydown'];
     events.forEach(event => {
       document.addEventListener(event, handleInteraction, { passive: true });
     });
 
-    console.log('🚀 Aguardando interação do usuário para ativar voz...');
+    console.log('🚀 Aguardando clique para ativar voz...');
 
     return () => {
       events.forEach(event => {
@@ -256,20 +263,9 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     };
   }, [unlockWithClick]);
 
-  // ========== EFEITO PARA PROCESSAR FILA ==========
-  useEffect(() => {
-    if (queue.length > 0 && isEnabled && isUnlocked && !isSpeaking && !isProcessingRef.current) {
-      console.log(`📋 Fila: ${queue.length} items - processando...`);
-      processQueue();
-    }
-  }, [queue.length, isEnabled, isUnlocked, isSpeaking, processQueue]);
-
   // ========== TOGGLE VOZ ==========
   const toggleVoice = useCallback(() => {
-    console.log('🔄 Toggle voice:', isEnabledRef.current ? 'OFF' : 'ON');
-
     if (isEnabledRef.current) {
-      // MUTANDO
       if (processingTimeoutRef.current) {
         clearTimeout(processingTimeoutRef.current);
         processingTimeoutRef.current = null;
@@ -279,7 +275,6 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       
       setIsSpeaking(false);
       isSpeakingRef.current = false;
-      isProcessingRef.current = false;
       setCurrentId(null);
       setIsEnabled(false);
       isEnabledRef.current = false;
@@ -288,47 +283,55 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       console.log('🔇 Voz MUTADA');
 
     } else {
-      // DESMUTANDO
       setIsEnabled(true);
       isEnabledRef.current = true;
-      isProcessingRef.current = false;
-
-      // Tentar desbloquear novamente
-      unlockWithClick();
+      
+      if (isUnlockedRef.current) {
+        setTimeout(() => speakNext(), 100);
+      }
       
       console.log('🔊 Voz ATIVADA');
     }
-  }, [unlockWithClick]);
+  }, [speakNext]);
 
   // ========== ADICIONAR À FILA ==========
   const addToQueue = useCallback((text: string, id: string, priority: boolean = false) => {
-    if (spokenIdsRef.current.has(id)) return;
-    if (addedToQueueRef.current.has(id)) return;
+    // Ignorar se já foi falado
+    if (spokenIdsRef.current.has(id)) {
+      console.log('⏭️ Já foi lido:', id.slice(0, 30));
+      return;
+    }
+    
+    // Ignorar se já está na fila
+    if (addedToQueueRef.current.has(id)) {
+      console.log('⏭️ Já na fila:', id.slice(0, 30));
+      return;
+    }
 
-    console.log(`➕ Adicionando à fila:`, id.slice(0, 40));
     addedToQueueRef.current.add(id);
 
-    if (priority && isEnabledRef.current) {
+    if (priority) {
+      // PRIORIDADE: Vai pra fila SEPARADA de prioridade
+      console.log('🔝 MENSAGEM PRIORITÁRIA adicionada:', text.slice(0, 50));
+      priorityQueueRef.current.push({ id, text, priority: true });
+    } else {
+      // Normal: Vai pra fila de news
+      console.log('➕ News adicionada à fila:', text.slice(0, 50));
+      newsQueueRef.current.push({ id, text, priority: false });
+    }
+    
+    updateQueueLength();
+
+    // Se não está falando e está desbloqueado, começar
+    if (!isSpeakingRef.current && isUnlockedRef.current && isEnabledRef.current) {
       if (processingTimeoutRef.current) {
         clearTimeout(processingTimeoutRef.current);
-        processingTimeoutRef.current = null;
       }
-      
-      if (isSpeakingRef.current) {
-        window.speechSynthesis?.cancel();
-        setIsSpeaking(false);
-        isSpeakingRef.current = false;
-        isProcessingRef.current = false;
-        setCurrentId(null);
-      }
-
-      setQueue(prev => [{ id, text }, ...prev]);
-    } else {
-      setQueue(prev => [...prev, { id, text }]);
+      processingTimeoutRef.current = setTimeout(() => speakNext(), 100);
     }
-  }, []);
+  }, [speakNext, updateQueueLength]);
 
-  // ========== FALAR AGORA ==========
+  // ========== FALAR AGORA (interrompe atual) ==========
   const speakNow = useCallback((text: string, id: string) => {
     if (!isEnabledRef.current) return;
 
@@ -336,12 +339,10 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       clearTimeout(processingTimeoutRef.current);
       processingTimeoutRef.current = null;
     }
-    
     window.speechSynthesis?.cancel();
     
     setIsSpeaking(false);
     isSpeakingRef.current = false;
-    isProcessingRef.current = false;
 
     spokenIdsRef.current.add(id);
 
@@ -366,8 +367,9 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       setCurrentId(null);
       window.dispatchEvent(new CustomEvent('character-speak-end'));
       
-      if (isEnabledRef.current) {
-        processingTimeoutRef.current = setTimeout(() => processQueue(), 3000);
+      const totalRemaining = priorityQueueRef.current.length + newsQueueRef.current.length;
+      if (isEnabledRef.current && totalRemaining > 0) {
+        processingTimeoutRef.current = setTimeout(() => speakNext(), 2000);
       }
     };
 
@@ -379,7 +381,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     };
 
     window.speechSynthesis?.speak(utterance);
-  }, [processQueue]);
+  }, [speakNext]);
 
   // ========== STOP ==========
   const stop = useCallback(() => {
@@ -392,12 +394,13 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     
     setIsSpeaking(false);
     isSpeakingRef.current = false;
-    isProcessingRef.current = false;
     setCurrentId(null);
-    setQueue([]);
+    priorityQueueRef.current = [];
+    newsQueueRef.current = [];
+    updateQueueLength();
 
     window.dispatchEvent(new CustomEvent('character-speak-end'));
-  }, []);
+  }, [updateQueueLength]);
 
   const hasBeenSpoken = useCallback((id: string) => {
     return spokenIdsRef.current.has(id);
@@ -417,7 +420,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       currentId,
       isEnabled,
       isUnlocked,
-      queueLength: queue.length,
+      queueLength,
       addToQueue,
       speakNow,
       stop,
